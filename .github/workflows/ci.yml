@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      - uses: actions/setup-node@v3
+        with:
+          node-version-file: '.npmrc'
+          cache: 'pnpm'
+      - name: Install dependencies
+        run: pnpm install --silent
+      - name: Lint with Prettier
+        run: pnpm run lint:prettier
+      - name: Lint with Stylelint
+        run: pnpm run lint:style
+      - name: Lint with ESLint
+        run: pnpm run lint:es
+      - name: Check TypeScript
+        run: pnpm run validate
+      - name: Check Svelte
+        run: pnpm run svelte:check
+      - name: Build  Site
+        run: pnpm run build
