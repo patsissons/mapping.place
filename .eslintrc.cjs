@@ -39,7 +39,8 @@ module.exports = {
     },
     {
       files: ['*.ts'],
-      extends: ['plugin:import/recommended'],
+      // not working with svelte path alias
+      // extends: ['plugin:import/recommended'],
       settings: {
         'import/resolver': {
           node: {

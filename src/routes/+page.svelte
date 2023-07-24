@@ -1,4 +1,5 @@
-<h1>Welcome to SvelteKit</h1>
-<p>
-  Visit <a href="https://kit.svelte.dev">kit.svelte.dev</a> to read the documentation
-</p>
+<div
+  class="flex items-center justify-center w-full h-full border border-dashed border-red-500"
+>
+  [MAIN]
+</div>
