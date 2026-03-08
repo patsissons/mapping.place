@@ -2,50 +2,14 @@ import { type NextRequest, NextResponse } from "next/server";
 
 import { createEmptyHours } from "@/lib/place-data";
 import { isGooglePlaceId } from "@/lib/google-place";
+import { isAllowedInternalAppRequest } from "@/lib/internal-api";
 import { hydrateGooglePlaceReference } from "@/lib/place-hydration";
-
-function isAllowedHydrationRequest(request: NextRequest) {
-  const expectedOrigin = request.nextUrl.origin;
-  const clientHeader = request.headers.get("x-mapping-place-client");
-  const secFetchSite = request.headers.get("sec-fetch-site");
-  const origin = request.headers.get("origin");
-  const referer = request.headers.get("referer");
-
-  if (clientHeader !== "web") {
-    return false;
-  }
-
-  if (
-    secFetchSite &&
-    secFetchSite !== "same-origin" &&
-    secFetchSite !== "same-site" &&
-    secFetchSite !== "none"
-  ) {
-    return false;
-  }
-
-  if (origin && origin !== expectedOrigin) {
-    return false;
-  }
-
-  if (referer) {
-    try {
-      if (new URL(referer).origin !== expectedOrigin) {
-        return false;
-      }
-    } catch {
-      return false;
-    }
-  }
-
-  return true;
-}
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ placeId: string }> },
 ) {
-  if (!isAllowedHydrationRequest(request)) {
+  if (!isAllowedInternalAppRequest(request)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
 

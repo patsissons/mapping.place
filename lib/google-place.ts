@@ -9,6 +9,9 @@ type ParsedGooglePlaceInput = {
   lng?: number;
 };
 
+const PLUS_CODE_PATTERN =
+  /\b[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,3}\b/i;
+
 function cleanText(value: string) {
   return decodeURIComponent(value)
     .replace(/\+/g, " ")
@@ -86,31 +89,26 @@ export function parseGooglePlaceInput(input: string) {
     return null;
   }
 
-  const looksLikeUrl =
-    /^https?:\/\//i.test(trimmed) ||
-    trimmed.includes("google.") ||
-    trimmed.includes("maps.app.goo.gl");
+  const looksLikeUrl = looksLikeGoogleMapsUrl(trimmed);
 
   if (!looksLikeUrl) {
-    const placeId = extractPlaceId(trimmed) ?? trimmed;
+    const placeId = extractPlaceId(trimmed) ?? (isGooglePlaceId(trimmed) ? trimmed : undefined);
+
+    if (looksLikePlusCode(trimmed)) {
+      return {
+        name: "Google Maps plus code",
+        address: trimmed,
+      } satisfies ParsedGooglePlaceInput;
+    }
 
     return {
-      name: `Google place ${placeId.slice(0, 8)}`,
+      name: placeId ? `Google place ${placeId.slice(0, 8)}` : "Google Maps input",
       placeId,
+      address: placeId ? undefined : trimmed,
     } satisfies ParsedGooglePlaceInput;
   }
 
-  let url: URL | null = null;
-
-  try {
-    url = new URL(trimmed);
-  } catch {
-    try {
-      url = new URL(`https://${trimmed}`);
-    } catch {
-      url = null;
-    }
-  }
+  const url = normalizeGoogleMapsUrl(trimmed);
 
   const placeId =
     extractPlaceId(trimmed) ??
@@ -146,7 +144,35 @@ export function parseGooglePlaceInput(input: string) {
 }
 
 export function isGooglePlaceId(value?: string): value is string {
-  return typeof value === "string" && /^ChI[\w-]+$/.test(value);
+  return typeof value === "string" && /^[A-Za-z0-9_-]{10,}$/.test(value.trim());
+}
+
+export function looksLikePlusCode(value: string) {
+  return PLUS_CODE_PATTERN.test(value.trim());
+}
+
+export function looksLikeGoogleMapsUrl(value: string) {
+  const trimmed = value.trim();
+
+  return (
+    /^https?:\/\//i.test(trimmed) ||
+    trimmed.includes("google.") ||
+    trimmed.includes("maps.app.goo.gl")
+  );
+}
+
+export function normalizeGoogleMapsUrl(value: string) {
+  const trimmed = value.trim();
+
+  try {
+    return new URL(trimmed);
+  } catch {
+    try {
+      return new URL(`https://${trimmed}`);
+    } catch {
+      return null;
+    }
+  }
 }
 
 export function markGooglePlaceHydrationPending(place: Place): Place {

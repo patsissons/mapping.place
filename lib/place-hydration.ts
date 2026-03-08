@@ -3,7 +3,11 @@ import "server-only";
 import { createEmptyHours, createStarterPlaces, DEFAULT_MAP_NAME } from "@/lib/place-data";
 import {
   isGooglePlaceId,
+  looksLikeGoogleMapsUrl,
+  looksLikePlusCode,
   markGooglePlaceHydrationFailed,
+  normalizeGoogleMapsUrl,
+  parseGooglePlaceInput,
 } from "@/lib/google-place";
 import { createUlid } from "@/lib/utils";
 import {
@@ -16,6 +20,8 @@ import {
 import { readMapStateFromSearchParams } from "@/lib/url-state";
 
 const GOOGLE_PLACE_ENDPOINT = "https://places.googleapis.com/v1/places";
+const GOOGLE_PLACE_TEXT_SEARCH_ENDPOINT =
+  "https://places.googleapis.com/v1/places:searchText";
 const GOOGLE_PLACE_FIELD_MASK = [
   "id",
   "displayName",
@@ -25,6 +31,7 @@ const GOOGLE_PLACE_FIELD_MASK = [
   "userRatingCount",
   "regularOpeningHours.periods",
 ].join(",");
+const GOOGLE_PLACE_TEXT_SEARCH_FIELD_MASK = "places.id";
 
 type SearchParamsRecord = Record<string, string | string[] | undefined>;
 
@@ -53,12 +60,39 @@ type GooglePlaceResponse = {
   };
 };
 
+type GooglePlaceTextSearchResponse = {
+  places?: Array<{
+    id?: string;
+  }>;
+};
+
+type PlaceIdSearchResult =
+  | {
+      placeId: string;
+    }
+  | {
+      error: string;
+    };
+
 export type PlaceHydrationResult = {
   ok: boolean;
   status: number;
   place: Place;
   error?: string;
 };
+
+export type ResolvedGooglePlaceInput =
+  | {
+      kind: "place-id" | "google-url" | "short-url" | "plus-code";
+      input: string;
+      placeId: string;
+      sourceUrl?: string;
+    }
+  | {
+      kind: "unsupported";
+      input: string;
+      error: string;
+    };
 
 function toUrlSearchParams(input: SearchParamsRecord | URLSearchParams) {
   if (input instanceof URLSearchParams) {
@@ -170,6 +204,245 @@ function getHydratedPlace(place: Place, data: GooglePlaceResponse): Place {
   };
 }
 
+function getGooglePlacesApiKey() {
+  return process.env.GOOGLE_PLACES_API_KEY;
+}
+
+async function searchTextForPlaceId(
+  textQuery: string,
+  options?: {
+    latitude?: number;
+    longitude?: number;
+  },
+): Promise<PlaceIdSearchResult> {
+  const apiKey = getGooglePlacesApiKey();
+
+  if (!apiKey) {
+    return {
+      error: "Google Places API key is not configured.",
+    } as const;
+  }
+
+  try {
+    const body: {
+      textQuery: string;
+      pageSize: number;
+      locationBias?: {
+        circle: {
+          center: {
+            latitude: number;
+            longitude: number;
+          };
+          radius: number;
+        };
+      };
+    } = {
+      textQuery,
+      pageSize: 1,
+    };
+
+    if (
+      isFiniteNumber(options?.latitude) &&
+      isFiniteNumber(options?.longitude)
+    ) {
+      body.locationBias = {
+        circle: {
+          center: {
+            latitude: options.latitude,
+            longitude: options.longitude,
+          },
+          radius: 500,
+        },
+      };
+    }
+
+    const response = await fetch(GOOGLE_PLACE_TEXT_SEARCH_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-Api-Key": apiKey,
+        "X-Goog-FieldMask": GOOGLE_PLACE_TEXT_SEARCH_FIELD_MASK,
+      },
+      body: JSON.stringify(body),
+      next: {
+        revalidate: 60 * 60 * 24,
+      },
+    });
+
+    if (!response.ok) {
+      return {
+        error: `Google Places text search failed with status ${response.status}.`,
+      } as const;
+    }
+
+    const data = (await response.json()) as GooglePlaceTextSearchResponse;
+    const placeId = data.places?.[0]?.id;
+
+    if (!isGooglePlaceId(placeId)) {
+      return {
+        error: "No Google Place matched that input.",
+      } as const;
+    }
+
+    return {
+      placeId,
+    } as const;
+  } catch (error) {
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Google Places text search failed.",
+    } as const;
+  }
+}
+
+async function resolvePlaceIdFromPlusCode(
+  input: string,
+): Promise<ResolvedGooglePlaceInput> {
+  const result = await searchTextForPlaceId(input);
+
+  if ("error" in result) {
+    return {
+      kind: "unsupported",
+      input,
+      error: result.error,
+    };
+  }
+
+  return {
+    kind: "plus-code",
+    input,
+    placeId: result.placeId,
+  };
+}
+
+async function resolvePlaceIdFromUrlSearchFallback(
+  input: string,
+  redirectedInput: string,
+): Promise<ResolvedGooglePlaceInput> {
+  const redirectedPlace = parseGooglePlaceInput(redirectedInput);
+  const textQuery = redirectedPlace?.name?.trim();
+
+  if (!textQuery || textQuery.startsWith("Google place ")) {
+    return {
+      kind: "unsupported",
+      input,
+      error: "Could not resolve a search query from that shared URL.",
+    };
+  }
+
+  const result = await searchTextForPlaceId(textQuery, {
+    latitude: redirectedPlace?.lat,
+    longitude: redirectedPlace?.lng,
+  });
+
+  if ("error" in result) {
+    return {
+      kind: "unsupported",
+      input,
+      error: result.error,
+    };
+  }
+
+  return {
+    kind: "short-url",
+    input,
+    placeId: result.placeId,
+    sourceUrl: input,
+  };
+}
+
+async function resolvePlaceIdFromGoogleUrl(
+  input: string,
+): Promise<ResolvedGooglePlaceInput> {
+  const parsed = parseGooglePlaceInput(input);
+
+  if (isGooglePlaceId(parsed?.placeId)) {
+    return {
+      kind: "google-url",
+      input,
+      placeId: parsed.placeId,
+      sourceUrl: parsed.sourceUrl ?? input,
+    };
+  }
+
+  const normalizedUrl = normalizeGoogleMapsUrl(input);
+
+  if (!normalizedUrl) {
+    return {
+      kind: "unsupported",
+      input,
+      error: "Could not parse this Google Maps URL.",
+    };
+  }
+
+  try {
+    const response = await fetch(normalizedUrl.toString(), {
+      redirect: "follow",
+      cache: "no-store",
+    });
+    const redirectedInput = response.url;
+    const redirectedPlace = parseGooglePlaceInput(redirectedInput);
+
+    if (isGooglePlaceId(redirectedPlace?.placeId)) {
+      return {
+        kind: normalizedUrl.hostname === "maps.app.goo.gl" ? "short-url" : "google-url",
+        input,
+        placeId: redirectedPlace.placeId,
+        sourceUrl: input,
+      };
+    }
+
+    return resolvePlaceIdFromUrlSearchFallback(input, redirectedInput);
+  } catch (error) {
+    return {
+      kind: "unsupported",
+      input,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Could not resolve that Google Maps URL.",
+    };
+  }
+}
+
+export async function resolveGooglePlaceInput(
+  input: string,
+): Promise<ResolvedGooglePlaceInput> {
+  const trimmed = input.trim();
+
+  if (!trimmed) {
+    return {
+      kind: "unsupported",
+      input,
+      error: "Input is required.",
+    };
+  }
+
+  if (isGooglePlaceId(trimmed)) {
+    return {
+      kind: "place-id",
+      input: trimmed,
+      placeId: trimmed,
+    };
+  }
+
+  if (looksLikeGoogleMapsUrl(trimmed)) {
+    return resolvePlaceIdFromGoogleUrl(trimmed);
+  }
+
+  if (looksLikePlusCode(trimmed)) {
+    return resolvePlaceIdFromPlusCode(trimmed);
+  }
+
+  return {
+    kind: "unsupported",
+    input: trimmed,
+    error: "Enter a Google Place ID, a Google Maps share URL, or a plus code.",
+  };
+}
+
 export async function hydrateGooglePlaceReference(
   place: Place,
 ): Promise<PlaceHydrationResult> {
@@ -181,7 +454,7 @@ export async function hydrateGooglePlaceReference(
     };
   }
 
-  const apiKey = process.env.GOOGLE_PLACES_API_KEY;
+  const apiKey = getGooglePlacesApiKey();
 
   if (!apiKey) {
     const error = "Google Places API key is not configured.";

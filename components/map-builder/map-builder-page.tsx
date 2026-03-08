@@ -30,16 +30,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  isGooglePlaceId,
   markGooglePlaceHydrationFailed,
   markGooglePlaceHydrationPending,
-  parseGooglePlaceInput,
   placeNeedsGoogleHydration,
 } from "@/lib/google-place";
 import {
   DEFAULT_MAP_NAME,
   createBlankPlaceDraft,
-  createEmptyHours,
   createStarterPlaces,
 } from "@/lib/place-data";
 import { getPlaceStatus } from "@/lib/place-status";
@@ -124,6 +121,11 @@ type HydratePlaceApiResponse = {
   place: Place;
 };
 
+type ResolvePlaceApiResponse = HydratePlaceApiResponse & {
+  placeId?: string;
+  inputType?: "place-id" | "google-url" | "short-url" | "plus-code";
+};
+
 export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   const [currentMapId, setCurrentMapId] = useState(initialMap.mapId);
   const [mapName, setMapName] = useState(initialMap.mapName);
@@ -154,6 +156,8 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [addPlaceError, setAddPlaceError] = useState<string | null>(null);
+  const [isResolvingPlaceInput, setIsResolvingPlaceInput] = useState(false);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
     initialMap.places[0]?.id ?? null,
   );
@@ -313,30 +317,51 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     }
   }
 
-  function handleAddPlace() {
-    const parsed = parseGooglePlaceInput(draft.googleInput);
+  async function handleAddPlace() {
+    const input = draft.googleInput.trim();
 
-    if (!parsed?.placeId || !isGooglePlaceId(parsed.placeId)) {
+    if (!input || isResolvingPlaceInput) {
       return;
     }
 
-    const nextPlace: Place = {
-      id: createId("place"),
-      placeId: parsed.placeId,
-      sourceUrl: parsed.sourceUrl,
-      name: parsed.name,
-      address: parsed.address,
-      lat: parsed.lat,
-      lng: parsed.lng,
-      rating: 0,
-      reviewCount: 0,
-      hours: createEmptyHours(),
-    };
+    setIsResolvingPlaceInput(true);
+    setAddPlaceError(null);
 
-    setPlaces((currentPlaces) => [...currentPlaces, nextPlace]);
-    setSelectedPlaceId(nextPlace.id);
-    setDraft(createBlankPlaceDraft());
-    setActiveSidebarTab("places");
+    try {
+      const response = await fetch("/api/places/resolve", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-mapping-place-client": "web",
+        },
+        body: JSON.stringify({
+          input,
+        }),
+      });
+      const payload = (await response.json()) as ResolvePlaceApiResponse;
+
+      if (!response.ok || !payload.place) {
+        throw new Error(payload.error ?? "Unable to resolve this Google place.");
+      }
+
+      const nextPlace: Place = {
+        ...payload.place,
+        id: createId("place"),
+      };
+
+      setPlaces((currentPlaces) => [...currentPlaces, nextPlace]);
+      setSelectedPlaceId(nextPlace.id);
+      setDraft(createBlankPlaceDraft());
+      setActiveSidebarTab("places");
+    } catch (error) {
+      setAddPlaceError(
+        error instanceof Error
+          ? error.message
+          : "Unable to resolve this Google place.",
+      );
+    } finally {
+      setIsResolvingPlaceInput(false);
+    }
   }
 
   function handleRemovePlace(placeId: string) {
@@ -381,6 +406,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     setPlaces([]);
     setSelectedPlaceId(null);
     setDraft(createBlankPlaceDraft());
+    setAddPlaceError(null);
     setFilterText("");
     setOpenOnly(false);
     setIsHeaderExpanded(true);
@@ -400,6 +426,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     setPlaces(starterPlaces);
     setSelectedPlaceId(starterPlaces[0]?.id ?? null);
     setDraft(createBlankPlaceDraft());
+    setAddPlaceError(null);
     setFilterText("");
     setOpenOnly(false);
     setSortOption("rating:desc");
@@ -606,9 +633,17 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
             {activeSidebarTab === "add" ? (
               <PlaceForm
                 draft={draft}
-                onDraftChange={setDraft}
+                onDraftChange={(nextDraft) => {
+                  setDraft(nextDraft);
+                  setAddPlaceError(null);
+                }}
                 onSubmit={handleAddPlace}
-                onReset={() => setDraft(createBlankPlaceDraft())}
+                onReset={() => {
+                  setDraft(createBlankPlaceDraft());
+                  setAddPlaceError(null);
+                }}
+                error={addPlaceError}
+                isSubmitting={isResolvingPlaceInput}
               />
             ) : null}
             {activeSidebarTab === "saved" ? (

@@ -41,6 +41,8 @@ single-place hydration from the client.
   plus optional place metadata
 - Server-side hydration of Google Place IDs found in the permalink payload
 - Internal `/api/places/[placeId]` route for single-place hydration
+- Internal `/api/places/resolve` route for turning a Place ID, short share URL,
+  or plus code into a hydrated place
 - Local storage persistence keyed by map name
 - Optional `placeId` on each place to support future Google data hydration/import
 

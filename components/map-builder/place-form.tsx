@@ -10,14 +10,16 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { isGooglePlaceId, parseGooglePlaceInput } from "@/lib/google-place";
+import { parseGooglePlaceInput } from "@/lib/google-place";
 import { type PlaceDraft } from "@/lib/types";
 
 type PlaceFormProps = {
   draft: PlaceDraft;
   onDraftChange: (draft: PlaceDraft) => void;
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   onReset: () => void;
+  error: string | null;
+  isSubmitting: boolean;
 };
 
 export function PlaceForm({
@@ -25,19 +27,20 @@ export function PlaceForm({
   onDraftChange,
   onSubmit,
   onReset,
+  error,
+  isSubmitting,
 }: PlaceFormProps) {
   const parsed = parseGooglePlaceInput(draft.googleInput);
-  const hasValidPlaceId = isGooglePlaceId(parsed?.placeId);
-  const formIsValid = draft.googleInput.trim().length > 0 && hasValidPlaceId;
+  const formIsValid = draft.googleInput.trim().length > 0 && !isSubmitting;
 
   return (
     <Card className="border-border/60">
       <CardHeader>
         <CardTitle className="text-base">Add from Google</CardTitle>
         <CardDescription>
-          Paste a Google Place ID or a Google Maps place URL that contains one.
-          The permalink only stores the Place ID plus any custom metadata, and
-          the app hydrates the rest from Google.
+          Paste a Google Place ID, a Google Maps share URL, or a plus code. The
+          server resolves that input into a Google Place ID, then hydrates the
+          place from Google.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -65,10 +68,8 @@ export function PlaceForm({
               <div>
                 Place ID:{" "}
                 {parsed.placeId
-                  ? hasValidPlaceId
-                    ? parsed.placeId
-                    : "Found input, but it is not a valid Google Place ID"
-                  : "Not found in this input yet"}
+                  ? parsed.placeId
+                  : "Will be resolved on the server if this is a short URL or plus code"}
               </div>
               <div>
                 Coordinates:{" "}
@@ -82,10 +83,15 @@ export function PlaceForm({
             </div>
           </div>
         ) : null}
+        {error ? (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        ) : null}
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button type="button" disabled={!formIsValid} onClick={onSubmit}>
             <Plus className="size-4" />
-            Add google place
+            {isSubmitting ? "Resolving..." : "Add google place"}
           </Button>
           <Button type="button" variant="outline" onClick={onReset}>
             <RotateCcw className="size-4" />
