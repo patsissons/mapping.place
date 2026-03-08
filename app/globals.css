@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-body:
+      "Avenir Next", "Segoe UI", "Helvetica Neue", "Arial Nova", sans-serif;
+    --font-display:
+      "Avenir Next Condensed", "Trebuchet MS", "Arial Narrow", sans-serif;
+    --background: 34 30% 97%;
+    --foreground: 210 29% 15%;
+    --card: 0 0% 100%;
+    --card-foreground: 210 29% 15%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 210 29% 15%;
+    --primary: 180 89% 28%;
+    --primary-foreground: 36 33% 97%;
+    --secondary: 40 38% 94%;
+    --secondary-foreground: 210 29% 15%;
+    --muted: 40 32% 93%;
+    --muted-foreground: 215 14% 42%;
+    --accent: 26 95% 56%;
+    --accent-foreground: 210 29% 15%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 210 18% 84%;
+    --input: 210 18% 84%;
+    --ring: 180 89% 28%;
+    --radius: 0.7rem;
+  }
+
+  .dark {
+    --background: 212 32% 8%;
+    --foreground: 42 25% 96%;
+    --card: 213 28% 11%;
+    --card-foreground: 42 25% 96%;
+    --popover: 213 28% 11%;
+    --popover-foreground: 42 25% 96%;
+    --primary: 173 76% 45%;
+    --primary-foreground: 212 32% 8%;
+    --secondary: 214 24% 16%;
+    --secondary-foreground: 42 25% 96%;
+    --muted: 214 24% 16%;
+    --muted-foreground: 214 14% 68%;
+    --accent: 29 92% 59%;
+    --accent-foreground: 212 32% 8%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 21% 23%;
+    --input: 214 21% 23%;
+    --ring: 173 76% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    background-image:
+      radial-gradient(
+        circle at top left,
+        rgba(28, 195, 175, 0.14),
+        transparent 24rem
+      ),
+      radial-gradient(
+        circle at bottom right,
+        rgba(255, 155, 59, 0.14),
+        transparent 28rem
+      ),
+      linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)));
+  }
+}
+
+@layer components {
+  .panel-grid {
+    @apply grid gap-4 lg:grid-cols-[24rem_minmax(0,1fr)];
+  }
+
+  .field-grid {
+    @apply grid gap-3 sm:grid-cols-2;
+  }
+}
+
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  background: hsl(var(--muted));
+  font: inherit;
+}
+
+.leaflet-control-attribution {
+  background: hsl(var(--card) / 0.9) !important;
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.leaflet-control-attribution a {
+  color: hsl(var(--primary)) !important;
+}
+
+.mapping-place-marker-shell {
+  background: transparent;
+  border: 0;
+}
+
+.mapping-place-pin {
+  display: flex;
+  min-width: 3rem;
+  justify-content: center;
+  border-radius: 0.7rem 0.7rem 0.15rem 0.15rem;
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  padding: 0.4rem 0.55rem;
+  box-shadow: 0 12px 25px rgba(15, 23, 42, 0.28);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--pin-fg);
+  background: var(--pin-bg);
+  transform: translateY(-0.25rem);
+}
+
+.mapping-place-pin::after {
+  position: absolute;
+  bottom: -0.55rem;
+  left: calc(50% - 0.4rem);
+  height: 0.8rem;
+  width: 0.8rem;
+  transform: rotate(45deg);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.82);
+  border-right: 2px solid rgba(255, 255, 255, 0.82);
+  background: var(--pin-bg);
+  content: "";
+}
