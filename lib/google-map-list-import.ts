@@ -2,6 +2,7 @@ import "server-only";
 
 import { createEmptyHours } from "@/lib/place-data";
 import { looksLikeGoogleMapsUrl, normalizeGoogleMapsUrl } from "@/lib/google-place";
+import { resolveGooglePlaceIdFromTextSearch } from "@/lib/place-hydration";
 import { type MapState, type Place } from "@/lib/types";
 import { createId, createUlid } from "@/lib/utils";
 
@@ -22,12 +23,31 @@ type GoogleMapListImportResult =
     };
 
 type GoogleMapListPayload = {
-  entries: unknown[];
+  entries: GoogleMapListEntry[];
   name: string;
   emoji?: string;
   listId: string;
   sourceMapUrl: string;
 };
+
+type GoogleMapListEntry = {
+  address?: string;
+  lat?: number;
+  lng?: number;
+  name: string;
+};
+
+type ImportedPlaceReference = Place & {
+  placeId: string;
+};
+
+type ImportedPlaceResolutionResult =
+  | {
+      error: string;
+    }
+  | {
+      place: ImportedPlaceReference;
+    };
 
 function getString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0
@@ -54,29 +74,11 @@ function stripXssiPrefix(value: string) {
   return value.replace(/^\)\]\}'\s*/, "");
 }
 
-function buildGooglePlaceUrl(place: {
-  name: string;
-  address?: string;
-  lat?: number;
-  lng?: number;
-}) {
-  if (
-    typeof place.lat === "number" &&
-    Number.isFinite(place.lat) &&
-    typeof place.lng === "number" &&
-    Number.isFinite(place.lng)
-  ) {
-    return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
-  }
-
-  const query = [place.name, place.address].filter(Boolean).join(" ");
-
-  return query
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`
-    : undefined;
+function buildGooglePlaceTextQuery(entry: GoogleMapListEntry) {
+  return [entry.name, entry.address].filter(Boolean).join(", ");
 }
 
-function parseImportedPlace(entry: unknown): Place | null {
+function parseGoogleMapListEntry(entry: unknown): GoogleMapListEntry | null {
   const entryArray = getArray(entry);
 
   if (!entryArray) {
@@ -96,20 +98,10 @@ function parseImportedPlace(entry: unknown): Place | null {
   const address = getString(detail?.[4]) ?? getString(detail?.[2]);
 
   return {
-    id: createId("place"),
-    sourceUrl: buildGooglePlaceUrl({
-      name,
-      address,
-      lat,
-      lng,
-    }),
     name,
     address,
     lat,
     lng,
-    rating: 0,
-    reviewCount: 0,
-    hours: createEmptyHours(),
   };
 }
 
@@ -135,11 +127,79 @@ function parseGoogleMapListPayload(
   }
 
   return {
-    entries,
+    entries: entries
+      .map(parseGoogleMapListEntry)
+      .filter((entry): entry is GoogleMapListEntry => entry !== null),
     name,
     emoji: getString(rootArray[17]),
     listId,
     sourceMapUrl,
+  };
+}
+
+async function resolveImportedPlaceReferences(
+  entries: GoogleMapListEntry[],
+): Promise<
+  | {
+      ok: true;
+      places: ImportedPlaceReference[];
+    }
+  | {
+      ok: false;
+      error: string;
+    }
+> {
+  const results: ImportedPlaceResolutionResult[] = await Promise.all(
+    entries.map(async (entry) => {
+      const resolved = await resolveGooglePlaceIdFromTextSearch(
+        buildGooglePlaceTextQuery(entry),
+        {
+          latitude: entry.lat,
+          longitude: entry.lng,
+        },
+      );
+
+      if ("error" in resolved) {
+        return {
+          error: `${entry.name}: ${resolved.error}`,
+        };
+      }
+
+      return {
+        place: {
+          id: createId("place"),
+          placeId: resolved.placeId,
+          name: `Google place ${resolved.placeId.slice(0, 8)}`,
+          rating: 0,
+          reviewCount: 0,
+          hours: createEmptyHours(),
+        } satisfies ImportedPlaceReference,
+      };
+    }),
+  );
+
+  const failures = results.filter(
+    (result): result is { error: string } => "error" in result,
+  );
+  const places = results
+    .filter(
+      (result): result is { place: ImportedPlaceReference } => "place" in result,
+    )
+    .map((result) => result.place);
+
+  if (failures.length > 0) {
+    return {
+      ok: false,
+      error:
+        failures.length === 1
+          ? `Could not resolve a Google Place ID for ${failures[0].error}`
+          : `Could not resolve Google Place IDs for ${failures.length} list entries. First failure: ${failures[0].error}`,
+    };
+  }
+
+  return {
+    ok: true,
+    places,
   };
 }
 
@@ -221,11 +281,19 @@ async function fetchGoogleMapListPayload(
       };
     }
 
-    const places = parsedPayload.entries
-      .map(parseImportedPlace)
-      .filter((place): place is Place => place !== null);
+    const resolvedPlaces = await resolveImportedPlaceReferences(
+      parsedPayload.entries,
+    );
 
-    if (places.length === 0) {
+    if (!resolvedPlaces.ok) {
+      return {
+        ok: false,
+        status: 422,
+        error: resolvedPlaces.error,
+      };
+    }
+
+    if (resolvedPlaces.places.length === 0) {
       return {
         ok: false,
         status: 422,
@@ -240,9 +308,9 @@ async function fetchGoogleMapListPayload(
         mapId: createUlid(),
         mapName: parsedPayload.name,
         mapEmoji: parsedPayload.emoji,
-        places,
+        places: resolvedPlaces.places,
       },
-      placeCount: places.length,
+      placeCount: resolvedPlaces.places.length,
       sourceMapId: parsedPayload.listId,
       sourceMapName: parsedPayload.name,
       sourceMapUrl: parsedPayload.sourceMapUrl,

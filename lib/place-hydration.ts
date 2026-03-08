@@ -327,6 +327,16 @@ async function searchTextForPlaceId(
   } as const;
 }
 
+export async function resolveGooglePlaceIdFromTextSearch(
+  textQuery: string,
+  options?: {
+    latitude?: number;
+    longitude?: number;
+  },
+) {
+  return searchTextForPlaceId(textQuery, options);
+}
+
 async function resolvePlaceIdFromUrlSearchFallback(
   input: string,
   redirectedInput: string,
