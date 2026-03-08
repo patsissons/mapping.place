@@ -21,6 +21,14 @@ export function SavedMapsPanel({
 }: SavedMapsPanelProps) {
   return (
     <div className="space-y-3">
+      <Button
+        type="button"
+        variant="destructive"
+        className="w-full"
+        onClick={onResetAllLocalData}
+      >
+        Delete all local data
+      </Button>
       {savedMaps.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
           Save a few places and the map will start appearing here.
@@ -74,14 +82,6 @@ export function SavedMapsPanel({
           );
         })
       )}
-      <Button
-        type="button"
-        variant="destructive"
-        className="w-full"
-        onClick={onResetAllLocalData}
-      >
-        Delete all local data
-      </Button>
     </div>
   );
 }
