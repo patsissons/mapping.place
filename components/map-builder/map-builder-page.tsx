@@ -24,6 +24,8 @@ import { SavedMapsPanel } from "@/components/map-builder/saved-maps-panel";
 import { SummaryStrip } from "@/components/map-builder/summary-strip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   markGooglePlaceHydrationFailed,
   markGooglePlaceHydrationPending,
@@ -153,6 +155,8 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   >("idle");
   const [locationError, setLocationError] = useState<string | null>(null);
   const [addPlaceError, setAddPlaceError] = useState<string | null>(null);
+  const [isGoogleListImportModalOpen, setIsGoogleListImportModalOpen] =
+    useState(false);
   const [googleListImportUrl, setGoogleListImportUrl] = useState("");
   const [googleListImportError, setGoogleListImportError] = useState<
     string | null
@@ -318,6 +322,22 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
 
     return () => window.clearTimeout(timer);
   }, [copyState]);
+
+  useEffect(() => {
+    if (!isGoogleListImportModalOpen) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && !isImportingGoogleList) {
+        setIsGoogleListImportModalOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isGoogleListImportModalOpen, isImportingGoogleList]);
 
   useEffect(() => {
     if (!initializedRef.current) {
@@ -526,6 +546,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     setSelectedPlaceId(null);
     setDraft(createBlankPlaceDraft());
     setAddPlaceError(null);
+    setIsGoogleListImportModalOpen(false);
     setGoogleListImportUrl("");
     setGoogleListImportError(null);
     setFilterText("");
@@ -549,6 +570,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     setSelectedPlaceId(starterPlaces[0]?.id ?? null);
     setDraft(createBlankPlaceDraft());
     setAddPlaceError(null);
+    setIsGoogleListImportModalOpen(false);
     setGoogleListImportUrl("");
     setGoogleListImportError(null);
     setFilterText("");
@@ -673,9 +695,13 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
           onMapNameBlur={handleMapNameBlur}
           onSelectedDateChange={setSelectedDate}
           onCopyPermalink={handleCopyPermalink}
-        onNewMap={handleCreateNewMap}
-        onExpandedChange={setIsHeaderExpanded}
-      />
+          onImportGoogleList={() => {
+            setIsGoogleListImportModalOpen(true);
+            setGoogleListImportError(null);
+          }}
+          onNewMap={handleCreateNewMap}
+          onExpandedChange={setIsHeaderExpanded}
+        />
       {isHeaderExpanded ? (
         <SummaryStrip
           placeCount={places.length}
@@ -768,18 +794,6 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
                 }}
                 error={addPlaceError}
                 isSubmitting={isResolvingPlaceInput}
-                importUrl={googleListImportUrl}
-                onImportUrlChange={(value) => {
-                  setGoogleListImportUrl(value);
-                  setGoogleListImportError(null);
-                }}
-                onImport={handleImportGoogleList}
-                onImportReset={() => {
-                  setGoogleListImportUrl("");
-                  setGoogleListImportError(null);
-                }}
-                importError={googleListImportError}
-                isImporting={isImportingGoogleList}
               />
             ) : null}
             {activeSidebarTab === "saved" ? (
@@ -807,6 +821,67 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
           onSelectPlace={handleSelectPlace}
         />
       </div>
+      {isGoogleListImportModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-xl border-border/60 bg-background/95 shadow-2xl">
+            <CardHeader className="space-y-2">
+              <CardTitle>Import Google list</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Paste a shared Google Maps list URL. We&apos;ll resolve each
+                entry to a Google Place ID, create a custom map URL, and let
+                SSR hydrate the places on load.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <form
+                className="space-y-4"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void handleImportGoogleList();
+                }}
+              >
+                <div className="space-y-2">
+                  <Label htmlFor="google-list-import-url">Google list URL</Label>
+                  <Input
+                    id="google-list-import-url"
+                    value={googleListImportUrl}
+                    onChange={(event) => {
+                      setGoogleListImportUrl(event.target.value);
+                      setGoogleListImportError(null);
+                    }}
+                    placeholder="https://maps.app.goo.gl/..."
+                    autoFocus
+                  />
+                </div>
+                {googleListImportError ? (
+                  <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    {googleListImportError}
+                  </div>
+                ) : null}
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isImportingGoogleList}
+                    onClick={() => setIsGoogleListImportModalOpen(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={
+                      googleListImportUrl.trim().length === 0 ||
+                      isImportingGoogleList
+                    }
+                  >
+                    {isImportingGoogleList ? "Importing..." : "Import list"}
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+      ) : null}
     </main>
   );
 }

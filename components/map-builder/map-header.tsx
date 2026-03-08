@@ -7,6 +7,7 @@ import {
   CircleHelp,
   Copy,
   Link2,
+  MapPinned,
   Plus,
   SquareStack,
 } from "lucide-react";
@@ -32,6 +33,7 @@ type MapHeaderProps = {
   onMapNameBlur: () => void;
   onSelectedDateChange: (value: string) => void;
   onCopyPermalink: () => void;
+  onImportGoogleList: () => void;
   onNewMap: () => void;
   onExpandedChange: (isExpanded: boolean) => void;
 };
@@ -49,6 +51,7 @@ export function MapHeader({
   onMapNameBlur,
   onSelectedDateChange,
   onCopyPermalink,
+  onImportGoogleList,
   onNewMap,
   onExpandedChange,
 }: MapHeaderProps) {
@@ -79,6 +82,10 @@ export function MapHeader({
         </Link>
         <div className="flex flex-wrap items-center gap-2 self-start">
           {!isExpanded ? copyButton : null}
+          <Button onClick={onImportGoogleList}>
+            <MapPinned className="size-4" />
+            Import list
+          </Button>
           <Button variant="secondary" onClick={onNewMap}>
             <Plus className="size-4" />
             New map
