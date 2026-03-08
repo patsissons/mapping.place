@@ -1,4 +1,4 @@
-import { SlidersHorizontal } from "lucide-react";
+import { CircleHelp, SlidersHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { HoverPopover } from "@/components/ui/hover-popover";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ type PlaceFiltersProps = {
   onOpenOnlyChange: (value: boolean) => void;
   onPinModeChange: (value: PinMode) => void;
   onSortOptionChange: (value: SortOption) => void;
+  onSelectedDateChange: (value: string) => void;
 };
 
 const pinModes: { value: PinMode; label: string }[] = [
@@ -41,6 +43,7 @@ export function PlaceFilters({
   onOpenOnlyChange,
   onPinModeChange,
   onSortOptionChange,
+  onSelectedDateChange,
 }: PlaceFiltersProps) {
   return (
     <Card className="border-border/60">
@@ -62,6 +65,23 @@ export function PlaceFilters({
             value={filterText}
             onChange={(event) => onFilterTextChange(event.target.value)}
             placeholder="Coffee, museum, bookstore..."
+          />
+        </div>
+        <div className="space-y-2">
+          <div className="flex min-h-6 items-center gap-2">
+            <Label htmlFor="selected-date-filter">Status date</Label>
+            <HoverPopover
+              content="This date controls the open or closed status shown for each place, the open-count stat, and the open-only filter."
+              align="left"
+            >
+              <CircleHelp className="size-3.5" />
+            </HoverPopover>
+          </div>
+          <Input
+            id="selected-date-filter"
+            type="date"
+            value={selectedDate}
+            onChange={(event) => onSelectedDateChange(event.target.value)}
           />
         </div>
         <div className="space-y-2">

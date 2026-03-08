@@ -4,18 +4,15 @@ import Link from "next/link";
 import {
   ChevronDown,
   ChevronUp,
-  CircleHelp,
   Copy,
   Link2,
   MapPinned,
   Plus,
-  SquareStack,
 } from "lucide-react";
 
 import { ThemeToggle } from "@/components/map-builder/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { HoverPopover } from "@/components/ui/hover-popover";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -23,15 +20,12 @@ import { cn } from "@/lib/utils";
 type MapHeaderProps = {
   mapName: string;
   mapEmoji: string;
-  selectedDate: string;
   permalink: string;
   copyState: "idle" | "copied" | "error";
-  savedMapCount: number;
   isExpanded: boolean;
   onMapNameChange: (value: string) => void;
   onMapEmojiChange: (value: string) => void;
   onMapNameBlur: () => void;
-  onSelectedDateChange: (value: string) => void;
   onCopyPermalink: () => void;
   onImportGoogleList: () => void;
   onNewMap: () => void;
@@ -41,15 +35,12 @@ type MapHeaderProps = {
 export function MapHeader({
   mapName,
   mapEmoji,
-  selectedDate,
   permalink,
   copyState,
-  savedMapCount,
   isExpanded,
   onMapNameChange,
   onMapEmojiChange,
   onMapNameBlur,
-  onSelectedDateChange,
   onCopyPermalink,
   onImportGoogleList,
   onNewMap,
@@ -108,59 +99,31 @@ export function MapHeader({
         </div>
       </CardHeader>
       {isExpanded ? (
-        <CardContent className="grid gap-4 pt-5 md:grid-cols-[minmax(0,1fr)_7rem_14rem_11rem]">
+        <CardContent className="grid gap-4 pt-5">
           <div className="space-y-2">
             <Label htmlFor="map-name">Map name</Label>
-            <Input
-              id="map-name"
-              value={mapName}
-              onBlur={onMapNameBlur}
-              onChange={(event) => onMapNameChange(event.target.value)}
-              placeholder="Weekend coffee crawl"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="map-emoji">Emoji</Label>
-            <Input
-              id="map-emoji"
-              value={mapEmoji}
-              onChange={(event) => onMapEmojiChange(event.target.value)}
-              placeholder="🌴"
-              maxLength={8}
-            />
-          </div>
-          <div className="space-y-2">
-            <div className="flex min-h-6 items-center gap-2">
-              <Label htmlFor="selected-date">Status date</Label>
-              <HoverPopover
-                content="This date controls the open or closed status shown for each place, the open-count stat, and the open-only filter."
-                align="left"
-              >
-                <CircleHelp className="size-3.5" />
-              </HoverPopover>
-            </div>
-            <Input
-              id="selected-date"
-              type="date"
-              value={selectedDate}
-              onChange={(event) => onSelectedDateChange(event.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Saved maps</Label>
-            <div className="flex h-10 items-center gap-2 rounded-md border border-input bg-secondary/40 px-3 text-sm">
-              <HoverPopover
-                content="Saved maps are stored locally in this browser on this device."
-                align="right"
-              >
-                <SquareStack className="size-4 text-primary" />
-              </HoverPopover>
-              <span className="font-semibold text-foreground">
-                {savedMapCount}
-              </span>
+            <div className="flex gap-2">
+              <div className="w-16 shrink-0">
+                <Label htmlFor="map-emoji" className="sr-only">
+                  Emoji
+                </Label>
+                <Input
+                  id="map-emoji"
+                  value={mapEmoji}
+                  onChange={(event) => onMapEmojiChange(event.target.value)}
+                  maxLength={8}
+                  className="text-center"
+                />
+              </div>
+              <Input
+                id="map-name"
+                value={mapName}
+                onBlur={onMapNameBlur}
+                onChange={(event) => onMapNameChange(event.target.value)}
+              />
             </div>
           </div>
-          <div className="space-y-2 md:col-span-4">
+          <div className="space-y-2">
             <Label htmlFor="permalink">Shareable permalink</Label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative flex-1">

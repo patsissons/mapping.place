@@ -682,26 +682,23 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[96rem] flex-col gap-4 p-3 sm:p-4 lg:p-6">
-        <MapHeader
-          mapName={mapName}
-          mapEmoji={mapEmoji}
-          selectedDate={selectedDate}
-          permalink={permalink}
-          copyState={copyState}
-          savedMapCount={savedMaps.length}
-          isExpanded={isHeaderExpanded}
-          onMapNameChange={setMapName}
-          onMapEmojiChange={setMapEmoji}
-          onMapNameBlur={handleMapNameBlur}
-          onSelectedDateChange={setSelectedDate}
-          onCopyPermalink={handleCopyPermalink}
-          onImportGoogleList={() => {
-            setIsGoogleListImportModalOpen(true);
-            setGoogleListImportError(null);
-          }}
-          onNewMap={handleCreateNewMap}
-          onExpandedChange={setIsHeaderExpanded}
-        />
+      <MapHeader
+        mapName={mapName}
+        mapEmoji={mapEmoji}
+        permalink={permalink}
+        copyState={copyState}
+        isExpanded={isHeaderExpanded}
+        onMapNameChange={setMapName}
+        onMapEmojiChange={setMapEmoji}
+        onMapNameBlur={handleMapNameBlur}
+        onCopyPermalink={handleCopyPermalink}
+        onImportGoogleList={() => {
+          setIsGoogleListImportModalOpen(true);
+          setGoogleListImportError(null);
+        }}
+        onNewMap={handleCreateNewMap}
+        onExpandedChange={setIsHeaderExpanded}
+      />
       {isHeaderExpanded ? (
         <SummaryStrip
           placeCount={places.length}
@@ -778,6 +775,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
                 onOpenOnlyChange={setOpenOnly}
                 onPinModeChange={setPinMode}
                 onSortOptionChange={setSortOption}
+                onSelectedDateChange={setSelectedDate}
               />
             ) : null}
             {activeSidebarTab === "add" ? (
