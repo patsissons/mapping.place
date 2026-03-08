@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -26,11 +25,13 @@ type MapHeaderProps = {
   permalink: string;
   copyState: "idle" | "copied" | "error";
   savedMapCount: number;
+  isExpanded: boolean;
   onMapNameChange: (value: string) => void;
   onMapNameBlur: () => void;
   onSelectedDateChange: (value: string) => void;
   onCopyPermalink: () => void;
   onNewMap: () => void;
+  onExpandedChange: (isExpanded: boolean) => void;
 };
 
 export function MapHeader({
@@ -39,14 +40,14 @@ export function MapHeader({
   permalink,
   copyState,
   savedMapCount,
+  isExpanded,
   onMapNameChange,
   onMapNameBlur,
   onSelectedDateChange,
   onCopyPermalink,
   onNewMap,
+  onExpandedChange,
 }: MapHeaderProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
-
   const copyButton = (
     <Button variant="outline" size="sm" onClick={onCopyPermalink}>
       <Copy className="size-4" />
@@ -85,7 +86,7 @@ export function MapHeader({
             size="icon"
             aria-expanded={isExpanded}
             aria-label={isExpanded ? "Collapse top bar" : "Expand top bar"}
-            onClick={() => setIsExpanded((currentValue) => !currentValue)}
+            onClick={() => onExpandedChange(!isExpanded)}
           >
             {isExpanded ? (
               <ChevronUp className="size-4" />
@@ -108,7 +109,7 @@ export function MapHeader({
             />
           </div>
           <div className="space-y-2">
-            <div className="flex items-center gap-2">
+            <div className="flex min-h-6 items-center gap-2">
               <Label htmlFor="selected-date">Status date</Label>
               <HoverPopover
                 content="This date controls the open or closed status shown for each place, the open-count stat, and the open-only filter."

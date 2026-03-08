@@ -17,19 +17,32 @@ import { PlaceList } from "@/components/map-builder/place-list";
 import { SavedMapsPanel } from "@/components/map-builder/saved-maps-panel";
 import { SummaryStrip } from "@/components/map-builder/summary-strip";
 import { Button } from "@/components/ui/button";
-import { createBlankPlaceDraft, createStarterPlaces } from "@/lib/place-data";
-import { getPlaceStatus } from "@/lib/place-status";
-import { loadSavedMaps, upsertSavedMap, writeSavedMaps } from "@/lib/storage";
+import { parseGooglePlaceInput } from "@/lib/google-place";
 import {
-  type OpeningHours,
+  createBlankPlaceDraft,
+  createEmptyHours,
+  createStarterPlaces,
+} from "@/lib/place-data";
+import { getPlaceStatus } from "@/lib/place-status";
+import {
+  clearSavedMaps,
+  loadSavedMaps,
+  upsertSavedMap,
+  writeSavedMaps,
+} from "@/lib/storage";
+import {
   type PinMode,
   type Place,
   type PlaceDraft,
   type SavedMap,
   type SortOption,
 } from "@/lib/types";
-import { readMapStateFromUrl, writeMapStateToUrl } from "@/lib/url-state";
-import { createId, getDateInputValue, parseNumber } from "@/lib/utils";
+import {
+  clearMapStateFromUrl,
+  readMapStateFromUrl,
+  writeMapStateToUrl,
+} from "@/lib/url-state";
+import { createId, createUlid, getDateInputValue } from "@/lib/utils";
 
 const DEFAULT_MAP_NAME = "Weekend shortlist";
 
@@ -85,10 +98,12 @@ function getEffectiveMapName(value: string) {
 }
 
 export function MapBuilderPage() {
+  const [currentMapId, setCurrentMapId] = useState(createUlid());
   const [mapName, setMapName] = useState(DEFAULT_MAP_NAME);
   const [places, setPlaces] = useState<Place[]>(createStarterPlaces());
   const [draft, setDraft] = useState<PlaceDraft>(createBlankPlaceDraft());
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>([]);
+  const [isHeaderExpanded, setIsHeaderExpanded] = useState(true);
   const [selectedDate, setSelectedDate] = useState(
     getDateInputValue(new Date()),
   );
@@ -103,8 +118,17 @@ export function MapBuilderPage() {
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
     "idle",
   );
+  const [currentLocation, setCurrentLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [locationFocusRequest, setLocationFocusRequest] = useState(0);
+  const [locationStatus, setLocationStatus] = useState<
+    "idle" | "loading" | "ready" | "error"
+  >("idle");
+  const [locationError, setLocationError] = useState<string | null>(null);
   const initializedRef = useRef(false);
-  const previousMapNameRef = useRef(DEFAULT_MAP_NAME);
+  const skipNextAutosaveRef = useRef(false);
   const deferredFilterText = useDeferredValue(filterText);
 
   useEffect(() => {
@@ -114,42 +138,44 @@ export function MapBuilderPage() {
     );
     const initialMap = urlMap
       ? {
+          id: urlMap.mapId ?? createUlid(),
           name: urlMap.mapName,
           places: urlMap.places,
         }
       : (storedMaps[0] ?? {
+          id: createUlid(),
           name: DEFAULT_MAP_NAME,
           places: createStarterPlaces(),
         });
 
+    writeSavedMaps(storedMaps);
     setSavedMaps(storedMaps);
+    setCurrentMapId(initialMap.id);
     setMapName(initialMap.name);
     setPlaces(initialMap.places);
     setSelectedPlaceId(initialMap.places[0]?.id ?? null);
     setPermalink(window.location.href);
-    previousMapNameRef.current = initialMap.name;
     initializedRef.current = true;
   }, []);
 
   useEffect(() => {
-    if (!initializedRef.current || !mapName.trim()) {
+    if (!initializedRef.current || !currentMapId || !mapName.trim()) {
+      return;
+    }
+
+    if (skipNextAutosaveRef.current) {
+      skipNextAutosaveRef.current = false;
       return;
     }
 
     const effectiveMapName = getEffectiveMapName(mapName);
-    const nextUrl = writeMapStateToUrl(effectiveMapName, places);
+    const nextUrl = writeMapStateToUrl(currentMapId, effectiveMapName, places);
     const updatedAt = new Date().toISOString();
 
     setPermalink(nextUrl);
     setSavedMaps((currentSavedMaps) => {
-      const previousMapName = previousMapNameRef.current;
-      const withoutPrevious =
-        previousMapName !== effectiveMapName
-          ? currentSavedMaps.filter(
-              (savedMap) => savedMap.name !== previousMapName,
-            )
-          : currentSavedMaps;
-      const nextSavedMaps = upsertSavedMap(withoutPrevious, {
+      const nextSavedMaps = upsertSavedMap(currentSavedMaps, {
+        id: currentMapId,
         name: effectiveMapName,
         places,
         updatedAt,
@@ -158,12 +184,11 @@ export function MapBuilderPage() {
         },
       });
 
-      previousMapNameRef.current = effectiveMapName;
       writeSavedMaps(nextSavedMaps);
 
       return nextSavedMaps;
     });
-  }, [mapName, places]);
+  }, [currentMapId, mapName, places]);
 
   useEffect(() => {
     if (copyState === "idle") {
@@ -181,30 +206,30 @@ export function MapBuilderPage() {
     }
   }
 
-  function handleHoursChange(hours: OpeningHours) {
-    setDraft((currentDraft) => ({
-      ...currentDraft,
-      hours,
-    }));
-  }
-
   function handleAddPlace() {
+    const parsed = parseGooglePlaceInput(draft.googleInput);
+
+    if (!parsed) {
+      return;
+    }
+
     const nextPlace: Place = {
       id: createId("place"),
-      name: draft.name.trim(),
-      placeId: draft.placeId.trim() || undefined,
-      address: draft.address.trim() || undefined,
-      notes: draft.notes.trim() || undefined,
-      lat: parseNumber(draft.lat),
-      lng: parseNumber(draft.lng),
-      rating: parseNumber(draft.rating, 4),
-      reviewCount: parseNumber(draft.reviewCount, 0),
-      hours: draft.hours,
+      placeId: parsed.placeId,
+      sourceUrl: parsed.sourceUrl,
+      name: parsed.name,
+      address: parsed.address,
+      lat: parsed.lat,
+      lng: parsed.lng,
+      rating: 0,
+      reviewCount: 0,
+      hours: createEmptyHours(),
     };
 
     setPlaces((currentPlaces) => [...currentPlaces, nextPlace]);
     setSelectedPlaceId(nextPlace.id);
     setDraft(createBlankPlaceDraft());
+    setActiveSidebarTab("places");
   }
 
   function handleRemovePlace(placeId: string) {
@@ -216,40 +241,60 @@ export function MapBuilderPage() {
     );
   }
 
-  function handleLoadMap(name: string) {
-    const savedMap = savedMaps.find((entry) => entry.name === name);
+  function handleLoadMap(mapId: string) {
+    const savedMap = savedMaps.find((entry) => entry.id === mapId);
 
     if (!savedMap) {
       return;
     }
 
+    setCurrentMapId(savedMap.id);
     setMapName(savedMap.name);
     setPlaces(savedMap.places);
     setSelectedPlaceId(savedMap.places[0]?.id ?? null);
   }
 
-  function handleDeleteMap(name: string) {
-    const nextSavedMaps = savedMaps.filter(
-      (savedMap) => savedMap.name !== name,
-    );
+  function handleDeleteMap(mapId: string) {
+    const nextSavedMaps = savedMaps.filter((savedMap) => savedMap.id !== mapId);
 
     setSavedMaps(nextSavedMaps);
     writeSavedMaps(nextSavedMaps);
-
-    if (name === previousMapNameRef.current) {
-      previousMapNameRef.current = getEffectiveMapName(mapName);
-    }
   }
 
   function handleCreateNewMap() {
     const nextName = createNewScratchMapName(savedMaps);
 
+    setCurrentMapId(createUlid());
     setMapName(nextName);
     setPlaces([]);
     setSelectedPlaceId(null);
     setDraft(createBlankPlaceDraft());
     setFilterText("");
     setOpenOnly(false);
+    setIsHeaderExpanded(true);
+    setActiveSidebarTab("add");
+  }
+
+  function handleResetAllLocalData() {
+    const starterPlaces = createStarterPlaces();
+
+    clearSavedMaps();
+    const nextUrl = clearMapStateFromUrl();
+    skipNextAutosaveRef.current = true;
+
+    setSavedMaps([]);
+    setCurrentMapId(createUlid());
+    setMapName(DEFAULT_MAP_NAME);
+    setPlaces(starterPlaces);
+    setSelectedPlaceId(starterPlaces[0]?.id ?? null);
+    setDraft(createBlankPlaceDraft());
+    setFilterText("");
+    setOpenOnly(false);
+    setSortOption("rating:desc");
+    setPinMode("rating");
+    setActiveSidebarTab("places");
+    setPermalink(nextUrl);
+    setIsHeaderExpanded(true);
   }
 
   async function handleCopyPermalink() {
@@ -261,6 +306,36 @@ export function MapBuilderPage() {
     }
   }
 
+  function handleLocateUser() {
+    if (!navigator.geolocation) {
+      setLocationStatus("error");
+      setLocationError("Geolocation is not supported in this browser.");
+      return;
+    }
+
+    setLocationStatus("loading");
+    setLocationError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCurrentLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+        setLocationStatus("ready");
+        setLocationFocusRequest((currentValue) => currentValue + 1);
+      },
+      () => {
+        setLocationStatus("error");
+        setLocationError("Unable to access your current location.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      },
+    );
+  }
+
   const normalizedFilter = deferredFilterText.trim().toLowerCase();
   const filteredPlaces = places
     .filter((place) => {
@@ -268,7 +343,7 @@ export function MapBuilderPage() {
         return true;
       }
 
-      const haystack = [place.name, place.address, place.notes]
+      const haystack = [place.name, place.address, place.notes, place.placeId]
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
@@ -307,10 +382,12 @@ export function MapBuilderPage() {
     (sum, place) => sum + place.reviewCount,
     0,
   );
+  const ratedPlaces = places.filter((place) => place.rating > 0);
   const averageRating =
-    places.length === 0
+    ratedPlaces.length === 0
       ? 0
-      : places.reduce((sum, place) => sum + place.rating, 0) / places.length;
+      : ratedPlaces.reduce((sum, place) => sum + place.rating, 0) /
+        ratedPlaces.length;
   const visiblePlacesLabel =
     filteredPlaces.length === places.length
       ? `${places.length} places in view`
@@ -324,18 +401,22 @@ export function MapBuilderPage() {
         permalink={permalink}
         copyState={copyState}
         savedMapCount={savedMaps.length}
+        isExpanded={isHeaderExpanded}
         onMapNameChange={setMapName}
         onMapNameBlur={handleMapNameBlur}
         onSelectedDateChange={setSelectedDate}
         onCopyPermalink={handleCopyPermalink}
         onNewMap={handleCreateNewMap}
+        onExpandedChange={setIsHeaderExpanded}
       />
-      <SummaryStrip
-        placeCount={places.length}
-        openCount={openCount}
-        averageRating={averageRating}
-        totalReviews={totalReviews}
-      />
+      {isHeaderExpanded ? (
+        <SummaryStrip
+          placeCount={places.length}
+          openCount={openCount}
+          averageRating={averageRating}
+          totalReviews={totalReviews}
+        />
+      ) : null}
       <div className="panel-grid lg:h-[calc(100vh-18rem)] lg:min-h-[42rem]">
         <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card/90 shadow-panel backdrop-blur">
           <div className="border-b border-border/60 px-4 py-4">
@@ -394,7 +475,6 @@ export function MapBuilderPage() {
               <PlaceForm
                 draft={draft}
                 onDraftChange={setDraft}
-                onHoursChange={handleHoursChange}
                 onSubmit={handleAddPlace}
                 onReset={() => setDraft(createBlankPlaceDraft())}
               />
@@ -402,9 +482,10 @@ export function MapBuilderPage() {
             {activeSidebarTab === "saved" ? (
               <SavedMapsPanel
                 savedMaps={savedMaps}
-                currentMapName={getEffectiveMapName(mapName)}
+                currentMapId={currentMapId}
                 onLoadMap={handleLoadMap}
                 onDeleteMap={handleDeleteMap}
+                onResetAllLocalData={handleResetAllLocalData}
               />
             ) : null}
           </div>
@@ -414,6 +495,11 @@ export function MapBuilderPage() {
           selectedPlaceId={selectedPlaceId}
           pinMode={pinMode}
           selectedDate={selectedDate}
+          currentLocation={currentLocation}
+          locationFocusRequest={locationFocusRequest}
+          locationStatus={locationStatus}
+          locationError={locationError}
+          onLocateUser={handleLocateUser}
           onSelectPlace={setSelectedPlaceId}
         />
       </div>

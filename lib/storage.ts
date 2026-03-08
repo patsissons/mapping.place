@@ -1,6 +1,22 @@
-import { type SavedMap } from "@/lib/types";
+import { type Place, type SavedMap } from "@/lib/types";
+import { createId, createUlid } from "@/lib/utils";
 
 const STORAGE_KEY = "mapping.place.saved-maps";
+
+function normalizePlace(place: Place) {
+  return {
+    ...place,
+    id: place.id || createId("place"),
+  } satisfies Place;
+}
+
+function normalizeSavedMap(savedMap: SavedMap) {
+  return {
+    ...savedMap,
+    id: savedMap.id || createUlid(),
+    places: savedMap.places.map(normalizePlace),
+  } satisfies SavedMap;
+}
 
 export function loadSavedMaps() {
   if (typeof window === "undefined") {
@@ -16,9 +32,9 @@ export function loadSavedMaps() {
   try {
     const parsed = JSON.parse(raw) as SavedMap[];
 
-    return parsed.sort((left, right) =>
-      right.updatedAt.localeCompare(left.updatedAt),
-    );
+    return parsed
+      .map(normalizeSavedMap)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
   } catch {
     return [] as SavedMap[];
   }
@@ -32,10 +48,16 @@ export function writeSavedMaps(savedMaps: SavedMap[]) {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(savedMaps));
 }
 
+export function clearSavedMaps() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(STORAGE_KEY);
+}
+
 export function upsertSavedMap(savedMaps: SavedMap[], nextMap: SavedMap) {
-  const remaining = savedMaps.filter(
-    (savedMap) => savedMap.name !== nextMap.name,
-  );
+  const remaining = savedMaps.filter((savedMap) => savedMap.id !== nextMap.id);
   const updated = [nextMap, ...remaining];
 
   return updated.sort((left, right) =>

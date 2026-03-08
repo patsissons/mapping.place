@@ -14,6 +14,33 @@ type PlaceListProps = {
   onRemovePlace: (placeId: string) => void;
 };
 
+function hasCoordinates(place: Place) {
+  return (
+    typeof place.lat === "number" &&
+    typeof place.lng === "number" &&
+    Number.isFinite(place.lat) &&
+    Number.isFinite(place.lng)
+  );
+}
+
+function hasConfiguredHours(place: Place) {
+  return Object.values(place.hours).some((hours) => hours.enabled);
+}
+
+function getPlaceDetail(place: Place, selectedDate: string) {
+  if (!hasCoordinates(place)) {
+    return place.placeId
+      ? `Saved Google reference ${place.placeId}. Add a full Google place URL later to capture map coordinates.`
+      : "Saved Google link. Coordinates will appear when the link exposes them or hydration is added.";
+  }
+
+  if (!hasConfiguredHours(place)) {
+    return "Coordinates available on the map.";
+  }
+
+  return getPlaceStatus(place, selectedDate).detail;
+}
+
 export function PlaceList({
   places,
   selectedPlaceId,
@@ -30,6 +57,9 @@ export function PlaceList({
       ) : (
         places.map((place) => {
           const status = getPlaceStatus(place, selectedDate);
+          const showRating = place.rating > 0;
+          const showReviews = place.reviewCount > 0;
+          const showStatus = hasConfiguredHours(place);
 
           return (
             <div
@@ -76,17 +106,28 @@ export function PlaceList({
                 onClick={() => onSelectPlace(place.id)}
               >
                 <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">Rating {place.rating.toFixed(1)}</Badge>
-                  <Badge variant="outline">
-                    {formatCompactNumber(place.reviewCount)} reviews
-                  </Badge>
-                  <Badge variant={status.isOpen ? "default" : "secondary"}>
-                    {status.label}
-                  </Badge>
+                  {showRating ? (
+                    <Badge variant="outline">
+                      Rating {place.rating.toFixed(1)}
+                    </Badge>
+                  ) : null}
+                  {showReviews ? (
+                    <Badge variant="outline">
+                      {formatCompactNumber(place.reviewCount)} reviews
+                    </Badge>
+                  ) : null}
+                  {showStatus ? (
+                    <Badge variant={status.isOpen ? "default" : "secondary"}>
+                      {status.label}
+                    </Badge>
+                  ) : null}
+                  {!hasCoordinates(place) ? (
+                    <Badge variant="secondary">Location pending</Badge>
+                  ) : null}
                 </div>
                 <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                   <MessageSquareMore className="size-3.5" />
-                  <span>{status.detail}</span>
+                  <span>{getPlaceDetail(place, selectedDate)}</span>
                 </div>
                 {place.notes ? (
                   <p className="mt-3 text-sm text-muted-foreground">

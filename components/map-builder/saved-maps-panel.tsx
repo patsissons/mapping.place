@@ -6,16 +6,18 @@ import { type SavedMap } from "@/lib/types";
 
 type SavedMapsPanelProps = {
   savedMaps: SavedMap[];
-  currentMapName: string;
-  onLoadMap: (name: string) => void;
-  onDeleteMap: (name: string) => void;
+  currentMapId: string;
+  onLoadMap: (mapId: string) => void;
+  onDeleteMap: (mapId: string) => void;
+  onResetAllLocalData: () => void;
 };
 
 export function SavedMapsPanel({
   savedMaps,
-  currentMapName,
+  currentMapId,
   onLoadMap,
   onDeleteMap,
+  onResetAllLocalData,
 }: SavedMapsPanelProps) {
   return (
     <div className="space-y-3">
@@ -25,18 +27,18 @@ export function SavedMapsPanel({
         </div>
       ) : (
         savedMaps.map((savedMap) => {
-          const isActive = savedMap.name === currentMapName;
+          const isActive = savedMap.id === currentMapId;
 
           return (
             <div
-              key={savedMap.name}
+              key={savedMap.id}
               className="rounded-lg border border-border bg-background p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <button
                   type="button"
                   className="min-w-0 truncate text-left font-medium text-foreground underline-offset-4 hover:underline"
-                  onClick={() => onLoadMap(savedMap.name)}
+                  onClick={() => onLoadMap(savedMap.id)}
                 >
                   {savedMap.name}
                 </button>
@@ -44,7 +46,7 @@ export function SavedMapsPanel({
                   variant="ghost"
                   size="icon"
                   disabled={isActive}
-                  onClick={() => onDeleteMap(savedMap.name)}
+                  onClick={() => onDeleteMap(savedMap.id)}
                 >
                   <Trash2 className="size-4" />
                 </Button>
@@ -64,7 +66,7 @@ export function SavedMapsPanel({
                 size="sm"
                 className="mt-3 w-full"
                 disabled={isActive}
-                onClick={() => onLoadMap(savedMap.name)}
+                onClick={() => onLoadMap(savedMap.id)}
               >
                 {isActive ? "Current map" : "Load map"}
               </Button>
@@ -72,6 +74,14 @@ export function SavedMapsPanel({
           );
         })
       )}
+      <Button
+        type="button"
+        variant="destructive"
+        className="w-full"
+        onClick={onResetAllLocalData}
+      >
+        Delete all local data
+      </Button>
     </div>
   );
 }

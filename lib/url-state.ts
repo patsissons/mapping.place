@@ -3,17 +3,19 @@ import { type Place } from "@/lib/types";
 type EncodedPlace = {
   i: string;
   n: string;
-  a: number;
-  o: number;
   r: number;
   v: number;
   h: Place["hours"];
+  a?: number;
+  o?: number;
   p?: string;
   d?: string;
   t?: string;
+  u?: string;
 };
 
 type EncodedMapPayload = {
+  i?: string;
   n: string;
   p: EncodedPlace[];
 };
@@ -34,8 +36,13 @@ function decodeBase64Url(value: string) {
   return atob(padded);
 }
 
-function packPayload(mapName: string, places: Place[]): EncodedMapPayload {
+function packPayload(
+  mapId: string,
+  mapName: string,
+  places: Place[],
+): EncodedMapPayload {
   return {
+    i: mapId,
     n: mapName,
     p: places.map((place) => ({
       i: place.id,
@@ -48,12 +55,14 @@ function packPayload(mapName: string, places: Place[]): EncodedMapPayload {
       p: place.placeId,
       d: place.address,
       t: place.notes,
+      u: place.sourceUrl,
     })),
   };
 }
 
 function unpackPayload(payload: EncodedMapPayload) {
   return {
+    mapId: payload.i,
     mapName: payload.n,
     places: payload.p.map((place) => ({
       id: place.i,
@@ -66,6 +75,7 @@ function unpackPayload(payload: EncodedMapPayload) {
       placeId: place.p,
       address: place.d,
       notes: place.t,
+      sourceUrl: place.u,
     })),
   };
 }
@@ -87,12 +97,25 @@ export function readMapStateFromUrl(searchParams: URLSearchParams) {
   }
 }
 
-export function writeMapStateToUrl(mapName: string, places: Place[]) {
-  const payload = packPayload(mapName, places);
+export function writeMapStateToUrl(
+  mapId: string,
+  mapName: string,
+  places: Place[],
+) {
+  const payload = packPayload(mapId, mapName, places);
   const encoded = encodeBase64Url(encodeURIComponent(JSON.stringify(payload)));
   const url = new URL(window.location.href);
 
   url.searchParams.set(PARAM_NAME, encoded);
+  window.history.replaceState({}, "", url);
+
+  return url.toString();
+}
+
+export function clearMapStateFromUrl() {
+  const url = new URL(window.location.href);
+
+  url.searchParams.delete(PARAM_NAME);
   window.history.replaceState({}, "", url);
 
   return url.toString();

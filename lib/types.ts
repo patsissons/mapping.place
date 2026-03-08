@@ -29,11 +29,12 @@ export type OpeningHours = Record<DayKey, DailyHours>;
 export type Place = {
   id: string;
   placeId?: string;
+  sourceUrl?: string;
   name: string;
   address?: string;
   notes?: string;
-  lat: number;
-  lng: number;
+  lat?: number;
+  lng?: number;
   rating: number;
   reviewCount: number;
   hours: OpeningHours;
@@ -50,6 +51,7 @@ export type SavedMapSource =
     };
 
 export type SavedMap = {
+  id: string;
   name: string;
   places: Place[];
   updatedAt: string;
@@ -57,13 +59,5 @@ export type SavedMap = {
 };
 
 export type PlaceDraft = {
-  name: string;
-  placeId: string;
-  address: string;
-  notes: string;
-  lat: string;
-  lng: string;
-  rating: string;
-  reviewCount: string;
-  hours: OpeningHours;
+  googleInput: string;
 };
