@@ -19,7 +19,7 @@ future Google Places or custom Google Map imports can be added without coupling
 the whole UI to Google Maps display licensing.
 
 The current builder now resolves URL-backed maps on the server, stores compact
-permalinks that contain Google Place IDs plus optional custom metadata, hydrates
+permalinks that contain only map metadata plus Google Place IDs, hydrates
 Google data before the page renders, and uses an internal API route for
 single-place hydration from the client.
 
@@ -37,12 +37,12 @@ single-place hydration from the client.
   - rating
   - review count
   - open / closed status
-- Shareable permalink generation via a compact URL payload of Google Place IDs
-  plus optional place metadata
+- Shareable permalink generation via a compact URL payload of `mapId`,
+  `mapName`, and Google Place ID references
 - Server-side hydration of Google Place IDs found in the permalink payload
 - Internal `/api/places/[placeId]` route for single-place hydration
-- Internal `/api/places/resolve` route for turning a Place ID, short share URL,
-  or plus code into a hydrated place
+- Internal `/api/places/resolve` route for turning a Place ID or Google Maps
+  share URL into a hydrated place
 - Local storage persistence keyed by map name
 - Optional `placeId` on each place to support future Google data hydration/import
 

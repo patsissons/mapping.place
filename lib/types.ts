@@ -26,10 +26,6 @@ export type DailyHours = {
 
 export type OpeningHours = Record<DayKey, DailyHours>;
 
-export type PlaceUrlMetadata = {
-  notes?: string;
-};
-
 export type PlaceHydration = {
   provider: "google-places";
   status: "pending" | "hydrated" | "failed";

@@ -4,7 +4,6 @@ import { createEmptyHours, createStarterPlaces, DEFAULT_MAP_NAME } from "@/lib/p
 import {
   isGooglePlaceId,
   looksLikeGoogleMapsUrl,
-  looksLikePlusCode,
   markGooglePlaceHydrationFailed,
   normalizeGoogleMapsUrl,
   parseGooglePlaceInput,
@@ -60,15 +59,25 @@ type GooglePlaceResponse = {
   };
 };
 
+type GooglePlaceSearchCandidate = {
+  id?: string;
+};
+
 type GooglePlaceTextSearchResponse = {
-  places?: Array<{
-    id?: string;
-  }>;
+  places?: GooglePlaceSearchCandidate[];
 };
 
 type PlaceIdSearchResult =
   | {
       placeId: string;
+    }
+  | {
+      error: string;
+    };
+
+type PlaceSearchResult =
+  | {
+      places: GooglePlaceSearchCandidate[];
     }
   | {
       error: string;
@@ -83,7 +92,7 @@ export type PlaceHydrationResult = {
 
 export type ResolvedGooglePlaceInput =
   | {
-      kind: "place-id" | "google-url" | "short-url" | "plus-code";
+      kind: "place-id" | "google-url" | "short-url";
       input: string;
       placeId: string;
       sourceUrl?: string;
@@ -208,13 +217,14 @@ function getGooglePlacesApiKey() {
   return process.env.GOOGLE_PLACES_API_KEY;
 }
 
-async function searchTextForPlaceId(
+async function searchTextForPlaces(
   textQuery: string,
   options?: {
     latitude?: number;
     longitude?: number;
+    pageSize?: number;
   },
-): Promise<PlaceIdSearchResult> {
+): Promise<PlaceSearchResult> {
   const apiKey = getGooglePlacesApiKey();
 
   if (!apiKey) {
@@ -238,7 +248,7 @@ async function searchTextForPlaceId(
       };
     } = {
       textQuery,
-      pageSize: 1,
+      pageSize: options?.pageSize ?? 1,
     };
 
     if (
@@ -276,16 +286,18 @@ async function searchTextForPlaceId(
     }
 
     const data = (await response.json()) as GooglePlaceTextSearchResponse;
-    const placeId = data.places?.[0]?.id;
+    const places = (data.places ?? []).filter((candidate) =>
+      isGooglePlaceId(candidate.id),
+    );
 
-    if (!isGooglePlaceId(placeId)) {
+    if (!places.length) {
       return {
         error: "No Google Place matched that input.",
       } as const;
     }
 
     return {
-      placeId,
+      places,
     } as const;
   } catch (error) {
     return {
@@ -293,28 +305,26 @@ async function searchTextForPlaceId(
         error instanceof Error
           ? error.message
           : "Google Places text search failed.",
-    } as const;
+      } as const;
   }
 }
 
-async function resolvePlaceIdFromPlusCode(
-  input: string,
-): Promise<ResolvedGooglePlaceInput> {
-  const result = await searchTextForPlaceId(input);
+async function searchTextForPlaceId(
+  textQuery: string,
+  options?: {
+    latitude?: number;
+    longitude?: number;
+  },
+): Promise<PlaceIdSearchResult> {
+  const result = await searchTextForPlaces(textQuery, options);
 
   if ("error" in result) {
-    return {
-      kind: "unsupported",
-      input,
-      error: result.error,
-    };
+    return result;
   }
 
   return {
-    kind: "plus-code",
-    input,
-    placeId: result.placeId,
-  };
+    placeId: result.places[0]!.id!,
+  } as const;
 }
 
 async function resolvePlaceIdFromUrlSearchFallback(
@@ -432,14 +442,10 @@ export async function resolveGooglePlaceInput(
     return resolvePlaceIdFromGoogleUrl(trimmed);
   }
 
-  if (looksLikePlusCode(trimmed)) {
-    return resolvePlaceIdFromPlusCode(trimmed);
-  }
-
   return {
     kind: "unsupported",
     input: trimmed,
-    error: "Enter a Google Place ID, a Google Maps share URL, or a plus code.",
+    error: "Enter a Google Place ID or a Google Maps share URL.",
   };
 }
 
@@ -527,7 +533,7 @@ export async function resolveInitialMapState(
   searchParamsInput: SearchParamsRecord | URLSearchParams,
 ): Promise<InitialMapState> {
   const searchParams = toUrlSearchParams(searchParamsInput);
-  const decodedMap = readMapStateFromSearchParams(searchParams);
+  const decodedMap = await readMapStateFromSearchParams(searchParams);
 
   if (!decodedMap) {
     return {

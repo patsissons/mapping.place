@@ -9,9 +9,6 @@ type ParsedGooglePlaceInput = {
   lng?: number;
 };
 
-const PLUS_CODE_PATTERN =
-  /\b[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,3}\b/i;
-
 function cleanText(value: string) {
   return decodeURIComponent(value)
     .replace(/\+/g, " ")
@@ -94,13 +91,6 @@ export function parseGooglePlaceInput(input: string) {
   if (!looksLikeUrl) {
     const placeId = extractPlaceId(trimmed) ?? (isGooglePlaceId(trimmed) ? trimmed : undefined);
 
-    if (looksLikePlusCode(trimmed)) {
-      return {
-        name: "Google Maps plus code",
-        address: trimmed,
-      } satisfies ParsedGooglePlaceInput;
-    }
-
     return {
       name: placeId ? `Google place ${placeId.slice(0, 8)}` : "Google Maps input",
       placeId,
@@ -145,10 +135,6 @@ export function parseGooglePlaceInput(input: string) {
 
 export function isGooglePlaceId(value?: string): value is string {
   return typeof value === "string" && /^[A-Za-z0-9_-]{10,}$/.test(value.trim());
-}
-
-export function looksLikePlusCode(value: string) {
-  return PLUS_CODE_PATTERN.test(value.trim());
 }
 
 export function looksLikeGoogleMapsUrl(value: string) {

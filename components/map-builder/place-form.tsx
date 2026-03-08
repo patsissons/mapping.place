@@ -38,9 +38,9 @@ export function PlaceForm({
       <CardHeader>
         <CardTitle className="text-base">Add from Google</CardTitle>
         <CardDescription>
-          Paste a Google Place ID, a Google Maps share URL, or a plus code. The
-          server resolves that input into a Google Place ID, then hydrates the
-          place from Google.
+          Paste a Google Place ID or a Google Maps share URL. The server
+          resolves that input into a Google Place ID, then hydrates the place
+          from Google.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -69,7 +69,7 @@ export function PlaceForm({
                 Place ID:{" "}
                 {parsed.placeId
                   ? parsed.placeId
-                  : "Will be resolved on the server if this is a short URL or plus code"}
+                  : "Will be resolved on the server if this is a Google Maps URL"}
               </div>
               <div>
                 Coordinates:{" "}

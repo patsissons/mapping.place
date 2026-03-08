@@ -23,12 +23,7 @@ import { PlaceList } from "@/components/map-builder/place-list";
 import { SavedMapsPanel } from "@/components/map-builder/saved-maps-panel";
 import { SummaryStrip } from "@/components/map-builder/summary-strip";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   markGooglePlaceHydrationFailed,
   markGooglePlaceHydrationPending,
@@ -55,9 +50,9 @@ import {
   type SortOption,
 } from "@/lib/types";
 import {
+  buildMapStateUrl,
   clearMapStateFromUrl,
-  readMapStateFromUrl,
-  writeMapStateToUrl,
+  readMapPayloadFromUrl,
 } from "@/lib/url-state";
 import { createId, createUlid, getDateInputValue } from "@/lib/utils";
 
@@ -123,7 +118,7 @@ type HydratePlaceApiResponse = {
 
 type ResolvePlaceApiResponse = HydratePlaceApiResponse & {
   placeId?: string;
-  inputType?: "place-id" | "google-url" | "short-url" | "plus-code";
+  inputType?: "place-id" | "google-url" | "short-url";
 };
 
 export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
@@ -163,21 +158,30 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   );
   const initializedRef = useRef(false);
   const pendingHydrationIdsRef = useRef(new Set<string>());
+  const permalinkRequestIdRef = useRef(0);
   const skipNextAutosaveRef = useRef(false);
   const deferredFilterText = useDeferredValue(filterText);
+  const [decodedUrlState, setDecodedUrlState] = useState<
+    Awaited<ReturnType<typeof readMapPayloadFromUrl>>
+  >(null);
 
   async function hydratePlaceById(localPlaceId: string, googlePlaceId: string) {
     try {
-      const response = await fetch(`/api/places/${encodeURIComponent(googlePlaceId)}`, {
-        method: "POST",
-        headers: {
-          "x-mapping-place-client": "web",
+      const response = await fetch(
+        `/api/places/${encodeURIComponent(googlePlaceId)}`,
+        {
+          method: "POST",
+          headers: {
+            "x-mapping-place-client": "web",
+          },
         },
-      });
+      );
       const payload = (await response.json()) as HydratePlaceApiResponse;
 
       if (!response.ok) {
-        throw new Error(payload.error ?? "Unable to hydrate this Google place.");
+        throw new Error(
+          payload.error ?? "Unable to hydrate this Google place.",
+        );
       }
 
       startTransition(() => {
@@ -196,7 +200,9 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
       });
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : "Unable to hydrate this Google place.";
+        error instanceof Error
+          ? error.message
+          : "Unable to hydrate this Google place.";
 
       startTransition(() => {
         setPlaces((currentPlaces) =>
@@ -245,10 +251,12 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     }
 
     const effectiveMapName = getEffectiveMapName(mapName);
-    const nextUrl = writeMapStateToUrl(currentMapId, effectiveMapName, places);
     const updatedAt = new Date().toISOString();
+    const requestId = permalinkRequestIdRef.current + 1;
+    const currentUrl = window.location.href;
 
-    setPermalink(nextUrl);
+    permalinkRequestIdRef.current = requestId;
+
     setSavedMaps((currentSavedMaps) => {
       const nextSavedMaps = upsertSavedMap(currentSavedMaps, {
         id: currentMapId,
@@ -264,6 +272,30 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
 
       return nextSavedMaps;
     });
+
+    let cancelled = false;
+
+    async function syncPermalink() {
+      const nextUrl = await buildMapStateUrl(
+        currentUrl,
+        currentMapId,
+        effectiveMapName,
+        places,
+      );
+
+      if (cancelled || requestId !== permalinkRequestIdRef.current) {
+        return;
+      }
+
+      window.history.replaceState({}, "", nextUrl);
+      setPermalink(nextUrl);
+    }
+
+    void syncPermalink();
+
+    return () => {
+      cancelled = true;
+    };
   }, [currentMapId, mapName, places]);
 
   useEffect(() => {
@@ -301,7 +333,9 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     startTransition(() => {
       setPlaces((currentPlaces) =>
         currentPlaces.map((place) =>
-          candidateIds.has(place.id) ? markGooglePlaceHydrationPending(place) : place,
+          candidateIds.has(place.id)
+            ? markGooglePlaceHydrationPending(place)
+            : place,
         ),
       );
     });
@@ -310,6 +344,31 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
       void hydratePlaceById(candidate.id, candidate.placeId!);
     }
   }, [places]);
+
+  useEffect(() => {
+    if (!permalink) {
+      setDecodedUrlState(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function decodePermalink() {
+      const decodedPayload = await readMapPayloadFromUrl(
+        new URL(permalink).searchParams,
+      );
+
+      if (!cancelled) {
+        setDecodedUrlState(decodedPayload);
+      }
+    }
+
+    void decodePermalink();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [permalink]);
 
   function handleMapNameBlur() {
     if (!mapName.trim()) {
@@ -341,7 +400,9 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
       const payload = (await response.json()) as ResolvePlaceApiResponse;
 
       if (!response.ok || !payload.place) {
-        throw new Error(payload.error ?? "Unable to resolve this Google place.");
+        throw new Error(
+          payload.error ?? "Unable to resolve this Google place.",
+        );
       }
 
       const nextPlace: Place = {
@@ -531,10 +592,6 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     filteredPlaces.length === places.length
       ? `${places.length} places in view`
       : `${filteredPlaces.length} of ${places.length} places shown`;
-  const decodedUrlState =
-    typeof window !== "undefined" && permalink
-      ? readMapStateFromUrl(new URL(permalink).searchParams)
-      : null;
   const showDevPanel =
     process.env.NODE_ENV === "development" && isHeaderExpanded;
 
@@ -592,7 +649,9 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
                   <Button
                     key={tab.id}
                     type="button"
-                    variant={activeSidebarTab === tab.id ? "default" : "outline"}
+                    variant={
+                      activeSidebarTab === tab.id ? "default" : "outline"
+                    }
                     className="justify-start"
                     role="tab"
                     aria-selected={activeSidebarTab === tab.id}
