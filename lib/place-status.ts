@@ -37,20 +37,37 @@ function interpolateColor(ratio: number) {
   return `rgb(${mixed[0]} ${mixed[1]} ${mixed[2]})`;
 }
 
-function getReviewRatio(target: Place, places: Place[]) {
-  if (places.length < 2) {
+function getMetricRatio(targetValue: number, values: number[]) {
+  if (values.length < 2) {
     return 1;
   }
 
-  const counts = places.map((place) => place.reviewCount);
-  const min = Math.min(...counts);
-  const max = Math.max(...counts);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
 
   if (min === max) {
     return 1;
   }
 
-  return (target.reviewCount - min) / (max - min);
+  return (targetValue - min) / (max - min);
+}
+
+function getReviewRatio(target: Place, places: Place[]) {
+  if (places.length < 2) {
+    return 1;
+  }
+
+  return getMetricRatio(
+    target.reviewCount,
+    places.map((place) => place.reviewCount),
+  );
+}
+
+function getRatingRatio(target: Place, places: Place[]) {
+  return getMetricRatio(
+    target.rating,
+    places.map((place) => place.rating),
+  );
 }
 
 export function getPinAppearance(
@@ -78,7 +95,7 @@ export function getPinAppearance(
   }
 
   return {
-    background: interpolateColor((clamp(place.rating, 1, 5) - 1) / 4),
+    background: interpolateColor(getRatingRatio(place, places)),
     foreground: "white",
     label: place.rating.toFixed(1),
   };
