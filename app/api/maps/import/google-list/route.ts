@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 
+import { getAppSession } from "@/lib/auth-session";
 import { isAllowedInternalAppRequest } from "@/lib/internal-api";
 import { importGoogleMapList } from "@/lib/google-map-list-import";
 import { buildMapStateUrl } from "@/lib/url-state";
@@ -9,6 +10,12 @@ type ImportGoogleListRequestBody = {
 };
 
 export async function POST(request: NextRequest) {
+  const session = await getAppSession();
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   if (!isAllowedInternalAppRequest(request)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
@@ -30,7 +37,10 @@ export async function POST(request: NextRequest) {
   const imported = await importGoogleMapList(url);
 
   if (!imported.ok) {
-    return NextResponse.json({ error: imported.error }, { status: imported.status });
+    return NextResponse.json(
+      { error: imported.error },
+      { status: imported.status },
+    );
   }
 
   const mapUrl = await buildMapStateUrl(

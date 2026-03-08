@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { createEmptyHours } from "@/lib/place-data";
+import { getAppSession } from "@/lib/auth-session";
 import { isAllowedInternalAppRequest } from "@/lib/internal-api";
 import {
   hydrateGooglePlaceReference,
@@ -12,6 +13,12 @@ type ResolvePlaceRequestBody = {
 };
 
 export async function POST(request: NextRequest) {
+  const session = await getAppSession();
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   if (!isAllowedInternalAppRequest(request)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }

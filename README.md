@@ -63,9 +63,17 @@ single-place hydration from the client.
 3. Open [http://localhost:3000](http://localhost:3000).
 
 Copy [`.env.example`](/Users/patsissons/src/github.com/patsissons/mapping.place/.env.example)
-to `.env.local` and set `GOOGLE_PLACES_API_KEY` if you want server-side Google
-Place hydration to work locally. Without it, the app still loads, but Google
-Place references remain unresolved and the hydration route returns a `503`.
+to `.env.local`.
+
+Set these auth variables to enable the shared login gate:
+
+- `AUTH_SECRET` or `NEXTAUTH_SECRET`
+- `APP_AUTH_USERNAME`
+- `APP_AUTH_PASSWORD`
+
+Set `GOOGLE_PLACES_API_KEY` if you want server-side Google Place hydration to
+work locally. Without it, the app still loads, but Google Place references
+remain unresolved and the hydration route returns a `503`.
 
 ## Useful scripts
 
@@ -84,8 +92,10 @@ This project is intended for Vercel deployment.
 
 1. Import the repository into Vercel.
 2. Keep the framework preset as Next.js.
-3. Add `GOOGLE_PLACES_API_KEY` when you want Google Place hydration enabled.
-4. Deploy.
+3. Add `AUTH_SECRET` (or `NEXTAUTH_SECRET`), `APP_AUTH_USERNAME`, and
+   `APP_AUTH_PASSWORD`.
+4. Add `GOOGLE_PLACES_API_KEY` when you want Google Place hydration enabled.
+5. Deploy.
 
 ## Notes for the next iteration
 

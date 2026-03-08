@@ -1,5 +1,6 @@
 "use client";
 
+import { type ReactNode } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
@@ -23,6 +24,7 @@ type MapHeaderProps = {
   permalink: string;
   copyState: "idle" | "copied" | "error";
   isExpanded: boolean;
+  authControls?: ReactNode;
   onMapNameChange: (value: string) => void;
   onMapEmojiChange: (value: string) => void;
   onMapNameBlur: () => void;
@@ -38,6 +40,7 @@ export function MapHeader({
   permalink,
   copyState,
   isExpanded,
+  authControls,
   onMapNameChange,
   onMapEmojiChange,
   onMapNameBlur,
@@ -82,6 +85,7 @@ export function MapHeader({
             New map
           </Button>
           <ThemeToggle />
+          {authControls}
           <Button
             type="button"
             variant="ghost"

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 
 import { createEmptyHours } from "@/lib/place-data";
+import { getAppSession } from "@/lib/auth-session";
 import { isGooglePlaceId } from "@/lib/google-place";
 import { isAllowedInternalAppRequest } from "@/lib/internal-api";
 import { hydrateGooglePlaceReference } from "@/lib/place-hydration";
@@ -9,6 +10,12 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ placeId: string }> },
 ) {
+  const session = await getAppSession();
+
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  }
+
   if (!isAllowedInternalAppRequest(request)) {
     return NextResponse.json({ error: "Forbidden." }, { status: 403 });
   }
@@ -16,7 +23,10 @@ export async function POST(
   const { placeId } = await params;
 
   if (!isGooglePlaceId(placeId)) {
-    return NextResponse.json({ error: "Invalid Google Place ID." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Invalid Google Place ID." },
+      { status: 400 },
+    );
   }
 
   const result = await hydrateGooglePlaceReference({

@@ -21,6 +21,7 @@ import { PlaceFilters } from "@/components/map-builder/place-filters";
 import { PlaceForm } from "@/components/map-builder/place-form";
 import { PlaceList } from "@/components/map-builder/place-list";
 import { SavedMapsPanel } from "@/components/map-builder/saved-maps-panel";
+import { SignOutButton } from "@/components/auth/sign-out-button";
 import { SummaryStrip } from "@/components/map-builder/summary-strip";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -171,9 +172,8 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   const permalinkRequestIdRef = useRef(0);
   const skipNextAutosaveRef = useRef(false);
   const deferredFilterText = useDeferredValue(filterText);
-  const [decodedUrlState, setDecodedUrlState] = useState<
-    Awaited<ReturnType<typeof readMapPayloadFromUrl>>
-  >(null);
+  const [decodedUrlState, setDecodedUrlState] =
+    useState<Awaited<ReturnType<typeof readMapPayloadFromUrl>>>(null);
 
   async function hydratePlaceById(localPlaceId: string, googlePlaceId: string) {
     try {
@@ -688,6 +688,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
         permalink={permalink}
         copyState={copyState}
         isExpanded={isHeaderExpanded}
+        authControls={<SignOutButton />}
         onMapNameChange={setMapName}
         onMapEmojiChange={setMapEmoji}
         onMapNameBlur={handleMapNameBlur}
@@ -826,8 +827,8 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
               <CardTitle>Import Google list</CardTitle>
               <p className="text-sm text-muted-foreground">
                 Paste a shared Google Maps list URL. We&apos;ll resolve each
-                entry to a Google Place ID, create a custom map URL, and let
-                SSR hydrate the places on load.
+                entry to a Google Place ID, create a custom map URL, and let SSR
+                hydrate the places on load.
               </p>
             </CardHeader>
             <CardContent>
@@ -839,7 +840,9 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
                 }}
               >
                 <div className="space-y-2">
-                  <Label htmlFor="google-list-import-url">Google list URL</Label>
+                  <Label htmlFor="google-list-import-url">
+                    Google list URL
+                  </Label>
                   <Input
                     id="google-list-import-url"
                     value={googleListImportUrl}
