@@ -30,6 +30,24 @@ function hasConfiguredHours(place: Place) {
   return Object.values(place.hours).some((hours) => hours.enabled);
 }
 
+function getGoogleMapsUrl(place: Place) {
+  if (place.sourceUrl?.trim()) {
+    return place.sourceUrl.trim();
+  }
+
+  if (place.placeId?.trim()) {
+    return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(
+      place.placeId.trim(),
+    )}`;
+  }
+
+  if (hasCoordinates(place)) {
+    return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
+  }
+
+  return null;
+}
+
 function getPlaceDetail(place: Place, selectedDate: string) {
   if (place.hydration?.status === "pending") {
     return "Hydrating Google Place details...";
@@ -83,6 +101,7 @@ export function PlaceList({
       ) : (
         places.map((place) => {
           const status = getPlaceStatus(place, selectedDate);
+          const googleMapsUrl = getGoogleMapsUrl(place);
           const showRating = place.rating > 0;
           const showReviews = place.reviewCount > 0;
           const showStatus = hasConfiguredHours(place);
@@ -101,21 +120,51 @@ export function PlaceList({
               )}
             >
               <div className="flex items-start justify-between gap-3">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 text-left"
-                  onClick={() => onSelectPlace(place.id)}
-                >
-                  <div className="flex items-center gap-2">
-                    <MapPin className="size-4 shrink-0 text-primary" />
+                <div className="flex min-w-0 flex-1 items-start gap-2">
+                  {googleMapsUrl ? (
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="icon"
+                      className="mt-[-0.125rem] size-8 shrink-0"
+                    >
+                      <a
+                        href={googleMapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label={`Open ${place.name} in Google Maps`}
+                        title="Open in Google Maps"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <MapPin className="size-4 text-primary" />
+                      </a>
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="mt-[-0.125rem] size-8 shrink-0"
+                      disabled
+                      aria-label={`Google Maps link unavailable for ${place.name}`}
+                      title="Google Maps link unavailable"
+                    >
+                      <MapPin className="size-4 text-primary" />
+                    </Button>
+                  )}
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 text-left"
+                    onClick={() => onSelectPlace(place.id)}
+                  >
                     <div className="truncate font-medium">{place.name}</div>
-                  </div>
-                  {place.address ? (
-                    <p className="mt-3 text-sm text-muted-foreground">
-                      {place.address}
-                    </p>
-                  ) : null}
-                </button>
+                    {place.address ? (
+                      <p className="mt-3 text-sm text-muted-foreground">
+                        {place.address}
+                      </p>
+                    ) : null}
+                  </button>
+                </div>
                 <Button
                   type="button"
                   variant="ghost"
