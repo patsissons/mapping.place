@@ -17,6 +17,12 @@ import { PlaceList } from "@/components/map-builder/place-list";
 import { SavedMapsPanel } from "@/components/map-builder/saved-maps-panel";
 import { SummaryStrip } from "@/components/map-builder/summary-strip";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { parseGooglePlaceInput } from "@/lib/google-place";
 import {
   createBlankPlaceDraft,
@@ -122,6 +128,7 @@ export function MapBuilderPage() {
     lat: number;
     lng: number;
   } | null>(null);
+  const [selectedPlaceFocusRequest, setSelectedPlaceFocusRequest] = useState(0);
   const [locationFocusRequest, setLocationFocusRequest] = useState(0);
   const [locationStatus, setLocationStatus] = useState<
     "idle" | "loading" | "ready" | "error"
@@ -239,6 +246,11 @@ export function MapBuilderPage() {
     setSelectedPlaceId((currentSelectedPlaceId) =>
       currentSelectedPlaceId === placeId ? null : currentSelectedPlaceId,
     );
+  }
+
+  function handleSelectPlace(placeId: string) {
+    setSelectedPlaceId(placeId);
+    setSelectedPlaceFocusRequest((currentValue) => currentValue + 1);
   }
 
   function handleLoadMap(mapId: string) {
@@ -392,6 +404,12 @@ export function MapBuilderPage() {
     filteredPlaces.length === places.length
       ? `${places.length} places in view`
       : `${filteredPlaces.length} of ${places.length} places shown`;
+  const decodedUrlState =
+    typeof window !== "undefined" && permalink
+      ? readMapStateFromUrl(new URL(permalink).searchParams)
+      : null;
+  const showDevPanel =
+    process.env.NODE_ENV === "development" && isHeaderExpanded;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[96rem] flex-col gap-4 p-3 sm:p-4 lg:p-6">
@@ -416,6 +434,18 @@ export function MapBuilderPage() {
           averageRating={averageRating}
           totalReviews={totalReviews}
         />
+      ) : null}
+      {showDevPanel ? (
+        <Card className="border-border/60">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Decoded URL State</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="overflow-x-auto rounded-lg bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground">
+              {JSON.stringify(decodedUrlState, null, 2)}
+            </pre>
+          </CardContent>
+        </Card>
       ) : null}
       <div className="panel-grid lg:h-[calc(100vh-18rem)] lg:min-h-[42rem]">
         <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card/90 shadow-panel backdrop-blur">
@@ -454,7 +484,9 @@ export function MapBuilderPage() {
                 places={filteredPlaces}
                 selectedPlaceId={selectedPlaceId}
                 selectedDate={selectedDate}
-                onSelectPlace={setSelectedPlaceId}
+                isActive={activeSidebarTab === "places"}
+                selectionFocusRequest={selectedPlaceFocusRequest}
+                onSelectPlace={handleSelectPlace}
                 onRemovePlace={handleRemovePlace}
               />
             ) : null}
@@ -495,12 +527,13 @@ export function MapBuilderPage() {
           selectedPlaceId={selectedPlaceId}
           pinMode={pinMode}
           selectedDate={selectedDate}
+          selectedPlaceFocusRequest={selectedPlaceFocusRequest}
           currentLocation={currentLocation}
           locationFocusRequest={locationFocusRequest}
           locationStatus={locationStatus}
           locationError={locationError}
           onLocateUser={handleLocateUser}
-          onSelectPlace={setSelectedPlaceId}
+          onSelectPlace={handleSelectPlace}
         />
       </div>
     </main>

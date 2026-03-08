@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { MapPin, MessageSquareMore, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -10,6 +11,8 @@ type PlaceListProps = {
   places: Place[];
   selectedPlaceId: string | null;
   selectedDate: string;
+  isActive: boolean;
+  selectionFocusRequest: number;
   onSelectPlace: (placeId: string) => void;
   onRemovePlace: (placeId: string) => void;
 };
@@ -45,11 +48,26 @@ export function PlaceList({
   places,
   selectedPlaceId,
   selectedDate,
+  isActive,
+  selectionFocusRequest,
   onSelectPlace,
   onRemovePlace,
 }: PlaceListProps) {
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  useEffect(() => {
+    if (!isActive || !selectedPlaceId || selectionFocusRequest === 0) {
+      return;
+    }
+
+    itemRefs.current[selectedPlaceId]?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [isActive, selectedPlaceId, selectionFocusRequest]);
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 snap-y snap-proximity">
       {places.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
           No places match the current filter yet.
@@ -64,8 +82,11 @@ export function PlaceList({
           return (
             <div
               key={place.id}
+              ref={(node) => {
+                itemRefs.current[place.id] = node;
+              }}
               className={cn(
-                "rounded-lg border p-4 transition-colors",
+                "snap-start rounded-lg border p-4 transition-colors",
                 selectedPlaceId === place.id
                   ? "border-primary bg-primary/10"
                   : "border-border bg-background hover:bg-secondary/70",

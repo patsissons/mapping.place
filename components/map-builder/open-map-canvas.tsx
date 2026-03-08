@@ -19,6 +19,7 @@ type OpenMapCanvasProps = {
   selectedPlaceId: string | null;
   pinMode: PinMode;
   selectedDate: string;
+  selectedPlaceFocusRequest: number;
   currentLocation: { lat: number; lng: number } | null;
   locationFocusRequest: number;
   onSelectPlace: (placeId: string) => void;
@@ -65,10 +66,14 @@ function createMarkerIcon(
 
 function MapViewport({
   places,
+  selectedPlaceId,
+  selectedPlaceFocusRequest,
   currentLocation,
   locationFocusRequest,
 }: {
   places: Array<Place & { lat: number; lng: number }>;
+  selectedPlaceId: string | null;
+  selectedPlaceFocusRequest: number;
   currentLocation: { lat: number; lng: number } | null;
   locationFocusRequest: number;
 }) {
@@ -90,6 +95,22 @@ function MapViewport({
   }, [map, places]);
 
   useEffect(() => {
+    if (!selectedPlaceId || selectedPlaceFocusRequest === 0) {
+      return;
+    }
+
+    const selectedPlace = places.find((place) => place.id === selectedPlaceId);
+
+    if (!selectedPlace) {
+      return;
+    }
+
+    map.flyTo([selectedPlace.lat, selectedPlace.lng], Math.max(map.getZoom(), 14), {
+      duration: 0.45,
+    });
+  }, [map, places, selectedPlaceFocusRequest, selectedPlaceId]);
+
+  useEffect(() => {
     if (!currentLocation || locationFocusRequest === 0) {
       return;
     }
@@ -105,6 +126,7 @@ export function OpenMapCanvas({
   selectedPlaceId,
   pinMode,
   selectedDate,
+  selectedPlaceFocusRequest,
   currentLocation,
   locationFocusRequest,
   onSelectPlace,
@@ -124,6 +146,8 @@ export function OpenMapCanvas({
       />
       <MapViewport
         places={locatedPlaces}
+        selectedPlaceId={selectedPlaceId}
+        selectedPlaceFocusRequest={selectedPlaceFocusRequest}
         currentLocation={currentLocation}
         locationFocusRequest={locationFocusRequest}
       />

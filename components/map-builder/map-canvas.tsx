@@ -27,6 +27,7 @@ type MapCanvasProps = {
   selectedPlaceId: string | null;
   pinMode: PinMode;
   selectedDate: string;
+  selectedPlaceFocusRequest: number;
   currentLocation: { lat: number; lng: number } | null;
   locationFocusRequest: number;
   locationStatus: "idle" | "loading" | "ready" | "error";
@@ -40,6 +41,7 @@ export function MapCanvas({
   selectedPlaceId,
   pinMode,
   selectedDate,
+  selectedPlaceFocusRequest,
   currentLocation,
   locationFocusRequest,
   locationStatus,
@@ -57,6 +59,7 @@ export function MapCanvas({
               selectedPlaceId={selectedPlaceId}
               pinMode={pinMode}
               selectedDate={selectedDate}
+              selectedPlaceFocusRequest={selectedPlaceFocusRequest}
               currentLocation={currentLocation}
               locationFocusRequest={locationFocusRequest}
               onSelectPlace={onSelectPlace}

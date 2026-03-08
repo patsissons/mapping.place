@@ -49,7 +49,7 @@ export function MapHeader({
   onExpandedChange,
 }: MapHeaderProps) {
   const copyButton = (
-    <Button variant="outline" size="sm" onClick={onCopyPermalink}>
+    <Button variant="outline" onClick={onCopyPermalink}>
       <Copy className="size-4" />
       {copyState === "copied"
         ? "Copied"
