@@ -436,12 +436,12 @@ export function MapBuilderPage() {
         />
       ) : null}
       {showDevPanel ? (
-        <Card className="border-border/60">
+        <Card className="max-h-[400px] overflow-hidden border-border/60">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Decoded URL State</CardTitle>
           </CardHeader>
-          <CardContent>
-            <pre className="overflow-x-auto rounded-lg bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground">
+          <CardContent className="overflow-hidden">
+            <pre className="max-h-[320px] overflow-auto rounded-lg bg-secondary/40 p-3 text-xs leading-relaxed text-muted-foreground">
               {JSON.stringify(decodedUrlState, null, 2)}
             </pre>
           </CardContent>
