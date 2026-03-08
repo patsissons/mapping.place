@@ -18,8 +18,9 @@ The app intentionally keeps the visual map renderer decoupled from place data so
 future Google Places or custom Google Map imports can be added without coupling
 the whole UI to Google Maps display licensing.
 
-The current builder now resolves URL-backed maps on the server, hydrates Google
-Place IDs before the page renders, and uses an internal API route for
+The current builder now resolves URL-backed maps on the server, stores compact
+permalinks that contain Google Place IDs plus optional custom metadata, hydrates
+Google data before the page renders, and uses an internal API route for
 single-place hydration from the client.
 
 ## Features in this scaffold
@@ -36,7 +37,8 @@ single-place hydration from the client.
   - rating
   - review count
   - open / closed status
-- Shareable permalink generation via URL-encoded map payload
+- Shareable permalink generation via a compact URL payload of Google Place IDs
+  plus optional place metadata
 - Server-side hydration of Google Place IDs found in the permalink payload
 - Internal `/api/places/[placeId]` route for single-place hydration
 - Local storage persistence keyed by map name

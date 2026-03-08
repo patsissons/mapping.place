@@ -1,6 +1,12 @@
-import { type MapState, type Place } from "@/lib/types";
+import { createEmptyHours } from "@/lib/place-data";
+import { createId } from "@/lib/utils";
+import {
+  type MapState,
+  type Place,
+  type PlaceUrlMetadata,
+} from "@/lib/types";
 
-type EncodedPlace = {
+type LegacyEncodedPlace = {
   i: string;
   n: string;
   r: number;
@@ -14,10 +20,22 @@ type EncodedPlace = {
   u?: string;
 };
 
-type EncodedMapPayload = {
+type LegacyEncodedMapPayload = {
   i?: string;
   n: string;
-  p: EncodedPlace[];
+  p: LegacyEncodedPlace[];
+};
+
+type EncodedPlaceReference = {
+  p: string;
+  m?: PlaceUrlMetadata;
+};
+
+type EncodedMapPayload = {
+  v: 2;
+  i?: string;
+  n: string;
+  p: EncodedPlaceReference[];
 };
 
 export const MAP_STATE_PARAM = "m";
@@ -40,27 +58,53 @@ function decodeBase64Url(value: string) {
     : Buffer.from(padded, "base64").toString("utf8");
 }
 
-function packPayload(mapId: string, mapName: string, places: Place[]): EncodedMapPayload {
+function createPlaceholderPlace(placeId: string, metadata?: PlaceUrlMetadata): Place {
   return {
-    i: mapId,
-    n: mapName,
-    p: places.map((place) => ({
-      i: place.id,
-      n: place.name,
-      a: place.lat,
-      o: place.lng,
-      r: place.rating,
-      v: place.reviewCount,
-      h: place.hours,
-      p: place.placeId,
-      d: place.address,
-      t: place.notes,
-      u: place.sourceUrl,
-    })),
+    id: createId("place"),
+    placeId,
+    name: `Google place ${placeId.slice(0, 8)}`,
+    notes: metadata?.notes,
+    rating: 0,
+    reviewCount: 0,
+    hours: createEmptyHours(),
   };
 }
 
-function unpackPayload(payload: EncodedMapPayload): MapState {
+function getPlaceUrlMetadata(place: Place) {
+  const metadata: PlaceUrlMetadata = {};
+
+  if (place.notes?.trim()) {
+    metadata.notes = place.notes.trim();
+  }
+
+  return Object.keys(metadata).length > 0 ? metadata : undefined;
+}
+
+function packPayload(mapId: string, mapName: string, places: Place[]): EncodedMapPayload {
+  return {
+    v: 2,
+    i: mapId,
+    n: mapName,
+    p: places
+      .filter((place) => typeof place.placeId === "string" && place.placeId.length > 0)
+      .map((place) => ({
+        p: place.placeId!,
+        m: getPlaceUrlMetadata(place),
+      })),
+  };
+}
+
+function unpackCompactPayload(payload: EncodedMapPayload): MapState {
+  return {
+    mapId: payload.i ?? "",
+    mapName: payload.n,
+    places: payload.p
+      .filter((place) => typeof place.p === "string" && place.p.length > 0)
+      .map((place) => createPlaceholderPlace(place.p, place.m)),
+  };
+}
+
+function unpackLegacyPayload(payload: LegacyEncodedMapPayload): MapState {
   return {
     mapId: payload.i ?? "",
     mapName: payload.n,
@@ -80,12 +124,22 @@ function unpackPayload(payload: EncodedMapPayload): MapState {
   };
 }
 
+function isCompactPayload(
+  payload: EncodedMapPayload | LegacyEncodedMapPayload,
+): payload is EncodedMapPayload {
+  return "v" in payload && payload.v === 2;
+}
+
 export function decodeMapStateParam(encoded: string) {
   try {
     const decoded = decodeURIComponent(decodeBase64Url(encoded));
-    const parsed = JSON.parse(decoded) as EncodedMapPayload;
+    const parsed = JSON.parse(decoded) as EncodedMapPayload | LegacyEncodedMapPayload;
 
-    return unpackPayload(parsed);
+    if (isCompactPayload(parsed)) {
+      return unpackCompactPayload(parsed);
+    }
+
+    return unpackLegacyPayload(parsed);
   } catch {
     return null;
   }

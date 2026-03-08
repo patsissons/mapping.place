@@ -30,6 +30,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  isGooglePlaceId,
   markGooglePlaceHydrationFailed,
   markGooglePlaceHydrationPending,
   parseGooglePlaceInput,
@@ -315,7 +316,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   function handleAddPlace() {
     const parsed = parseGooglePlaceInput(draft.googleInput);
 
-    if (!parsed) {
+    if (!parsed?.placeId || !isGooglePlaceId(parsed.placeId)) {
       return;
     }
 

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { parseGooglePlaceInput } from "@/lib/google-place";
+import { isGooglePlaceId, parseGooglePlaceInput } from "@/lib/google-place";
 import { type PlaceDraft } from "@/lib/types";
 
 type PlaceFormProps = {
@@ -27,16 +27,17 @@ export function PlaceForm({
   onReset,
 }: PlaceFormProps) {
   const parsed = parseGooglePlaceInput(draft.googleInput);
-  const formIsValid = draft.googleInput.trim().length > 0;
+  const hasValidPlaceId = isGooglePlaceId(parsed?.placeId);
+  const formIsValid = draft.googleInput.trim().length > 0 && hasValidPlaceId;
 
   return (
     <Card className="border-border/60">
       <CardHeader>
         <CardTitle className="text-base">Add from Google</CardTitle>
         <CardDescription>
-          Paste a Google Place ID or a Google Maps place URL. The app will save
-          whatever the input exposes immediately, then hydrate the rest of the
-          place data through the server route when a Google Place ID is present.
+          Paste a Google Place ID or a Google Maps place URL that contains one.
+          The permalink only stores the Place ID plus any custom metadata, and
+          the app hydrates the rest from Google.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -62,7 +63,12 @@ export function PlaceForm({
             <div className="font-medium text-foreground">{parsed.name}</div>
             <div className="mt-2 space-y-1 text-xs text-muted-foreground">
               <div>
-                Place ID: {parsed.placeId ?? "Not found in this input yet"}
+                Place ID:{" "}
+                {parsed.placeId
+                  ? hasValidPlaceId
+                    ? parsed.placeId
+                    : "Found input, but it is not a valid Google Place ID"
+                  : "Not found in this input yet"}
               </div>
               <div>
                 Coordinates:{" "}
