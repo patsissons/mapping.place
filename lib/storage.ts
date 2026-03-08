@@ -14,6 +14,7 @@ function normalizeSavedMap(savedMap: SavedMap) {
   return {
     ...savedMap,
     id: savedMap.id || createUlid(),
+    emoji: savedMap.emoji?.trim() || undefined,
     places: savedMap.places.map(normalizePlace),
   } satisfies SavedMap;
 }

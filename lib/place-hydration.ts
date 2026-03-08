@@ -539,6 +539,7 @@ export async function resolveInitialMapState(
     return {
       mapId: createUlid(),
       mapName: DEFAULT_MAP_NAME,
+      mapEmoji: undefined,
       places: createStarterPlaces(),
       source: "default",
     };
@@ -547,6 +548,7 @@ export async function resolveInitialMapState(
   return {
     mapId: decodedMap.mapId || createUlid(),
     mapName: decodedMap.mapName,
+    mapEmoji: decodedMap.mapEmoji,
     places: await hydratePlaces(decodedMap.places),
     source: "url",
   };

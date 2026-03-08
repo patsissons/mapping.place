@@ -21,12 +21,14 @@ import { cn } from "@/lib/utils";
 
 type MapHeaderProps = {
   mapName: string;
+  mapEmoji: string;
   selectedDate: string;
   permalink: string;
   copyState: "idle" | "copied" | "error";
   savedMapCount: number;
   isExpanded: boolean;
   onMapNameChange: (value: string) => void;
+  onMapEmojiChange: (value: string) => void;
   onMapNameBlur: () => void;
   onSelectedDateChange: (value: string) => void;
   onCopyPermalink: () => void;
@@ -36,12 +38,14 @@ type MapHeaderProps = {
 
 export function MapHeader({
   mapName,
+  mapEmoji,
   selectedDate,
   permalink,
   copyState,
   savedMapCount,
   isExpanded,
   onMapNameChange,
+  onMapEmojiChange,
   onMapNameBlur,
   onSelectedDateChange,
   onCopyPermalink,
@@ -97,7 +101,7 @@ export function MapHeader({
         </div>
       </CardHeader>
       {isExpanded ? (
-        <CardContent className="grid gap-4 pt-5 md:grid-cols-[minmax(0,1fr)_14rem_11rem]">
+        <CardContent className="grid gap-4 pt-5 md:grid-cols-[minmax(0,1fr)_7rem_14rem_11rem]">
           <div className="space-y-2">
             <Label htmlFor="map-name">Map name</Label>
             <Input
@@ -106,6 +110,16 @@ export function MapHeader({
               onBlur={onMapNameBlur}
               onChange={(event) => onMapNameChange(event.target.value)}
               placeholder="Weekend coffee crawl"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="map-emoji">Emoji</Label>
+            <Input
+              id="map-emoji"
+              value={mapEmoji}
+              onChange={(event) => onMapEmojiChange(event.target.value)}
+              placeholder="🌴"
+              maxLength={8}
             />
           </div>
           <div className="space-y-2">
@@ -139,7 +153,7 @@ export function MapHeader({
               </span>
             </div>
           </div>
-          <div className="space-y-2 md:col-span-3">
+          <div className="space-y-2 md:col-span-4">
             <Label htmlFor="permalink">Shareable permalink</Label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="relative flex-1">

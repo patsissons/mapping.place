@@ -26,10 +26,13 @@ type EncodedPlaceReference = {
   placeId: string;
 };
 
+type EncodedPlacePayload = EncodedPlaceReference | Place;
+
 type EncodedMapPayload = {
   mapId?: string;
   mapName: string;
-  places: EncodedPlaceReference[];
+  mapEmoji?: string;
+  places: EncodedPlacePayload[];
 };
 
 type CompactEncodedPlaceReference = {
@@ -104,22 +107,146 @@ function createPlaceholderPlace(placeId: string): Place {
   };
 }
 
+function normalizeOptionalString(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : undefined;
+}
+
+function normalizeOptionalNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function normalizeHours(value: unknown) {
+  const nextHours = createEmptyHours();
+
+  if (!value || typeof value !== "object") {
+    return nextHours;
+  }
+
+  for (const dayKey of Object.keys(nextHours) as Array<keyof typeof nextHours>) {
+    const rawEntry = (value as Record<string, unknown>)[dayKey];
+
+    if (!rawEntry || typeof rawEntry !== "object") {
+      continue;
+    }
+
+    const enabled =
+      typeof (rawEntry as { enabled?: unknown }).enabled === "boolean"
+        ? (rawEntry as { enabled: boolean }).enabled
+        : nextHours[dayKey].enabled;
+    const open =
+      normalizeOptionalString((rawEntry as { open?: unknown }).open) ??
+      nextHours[dayKey].open;
+    const close =
+      normalizeOptionalString((rawEntry as { close?: unknown }).close) ??
+      nextHours[dayKey].close;
+
+    nextHours[dayKey] = {
+      enabled,
+      open,
+      close,
+    };
+  }
+
+  return nextHours;
+}
+
+function normalizePlacePayload(place: Place): Place | null {
+  const name = normalizeOptionalString(place.name);
+
+  if (!name) {
+    return null;
+  }
+
+  return {
+    id: normalizeOptionalString(place.id) ?? createId("place"),
+    placeId: normalizeOptionalString(place.placeId),
+    sourceUrl: normalizeOptionalString(place.sourceUrl),
+    name,
+    address: normalizeOptionalString(place.address),
+    notes: normalizeOptionalString(place.notes),
+    lat: normalizeOptionalNumber(place.lat),
+    lng: normalizeOptionalNumber(place.lng),
+    rating:
+      typeof place.rating === "number" && Number.isFinite(place.rating)
+        ? place.rating
+        : 0,
+    reviewCount:
+      typeof place.reviewCount === "number" && Number.isFinite(place.reviewCount)
+        ? place.reviewCount
+        : 0,
+    hours: normalizeHours(place.hours),
+    hydration:
+      place.hydration &&
+      place.hydration.provider === "google-places" &&
+      (place.hydration.status === "pending" ||
+        place.hydration.status === "hydrated" ||
+        place.hydration.status === "failed") &&
+      typeof place.hydration.updatedAt === "string"
+        ? {
+            provider: "google-places",
+            status: place.hydration.status,
+            updatedAt: place.hydration.updatedAt,
+            error: normalizeOptionalString(place.hydration.error),
+          }
+        : undefined,
+  };
+}
+
+function normalizeEncodedPlace(
+  place: EncodedPlacePayload,
+): EncodedPlacePayload | null {
+  if (
+    typeof place === "object" &&
+    place &&
+    "name" in place &&
+    typeof place.name === "string"
+  ) {
+    return normalizePlacePayload(place);
+  }
+
+  return typeof place.placeId === "string" && place.placeId.length > 0
+    ? {
+        placeId: place.placeId,
+      }
+    : null;
+}
+
+function isEncodedPlaceReference(
+  place: EncodedPlacePayload,
+): place is EncodedPlaceReference {
+  return !("name" in place);
+}
+
 function packPayload(
   mapId: string,
   mapName: string,
+  mapEmoji: string | undefined,
   places: Place[],
 ): EncodedMapPayload {
+  const shouldEncodeAsReferences =
+    places.length === 0 ||
+    places.every(
+      (place) => typeof place.placeId === "string" && place.placeId.length > 0,
+    );
+
   return {
     mapId,
     mapName,
-    places: places
-      .filter(
-        (place) =>
-          typeof place.placeId === "string" && place.placeId.length > 0,
-      )
-      .map((place) => ({
-        placeId: place.placeId!,
-      })),
+    mapEmoji: normalizeOptionalString(mapEmoji),
+    places: shouldEncodeAsReferences
+      ? places
+          .filter(
+            (place) =>
+              typeof place.placeId === "string" && place.placeId.length > 0,
+          )
+          .map((place) => ({
+            placeId: place.placeId!,
+          }))
+      : places.map((place) => ({
+          ...place,
+        })),
   };
 }
 
@@ -127,12 +254,15 @@ function unpackPayload(payload: EncodedMapPayload): MapState {
   return {
     mapId: payload.mapId ?? "",
     mapName: payload.mapName,
+    mapEmoji: payload.mapEmoji,
     places: payload.places
-      .filter(
-        (place): place is EncodedPlaceReference =>
-          typeof place.placeId === "string" && place.placeId.length > 0,
-      )
-      .map((place) => createPlaceholderPlace(place.placeId)),
+      .map(normalizeEncodedPlace)
+      .filter((place): place is EncodedPlacePayload => place !== null)
+      .map((place) =>
+        isEncodedPlaceReference(place)
+          ? createPlaceholderPlace(place.placeId)
+          : place,
+      ),
   };
 }
 
@@ -160,6 +290,7 @@ function normalizeCompactPayload(
   return {
     mapId: payload.i,
     mapName: payload.n,
+    mapEmoji: undefined,
     places: payload.p
       .filter((place) => typeof place.p === "string" && place.p.length > 0)
       .map((place) => ({
@@ -174,10 +305,10 @@ function normalizeCurrentPayload(
   return {
     mapId: payload.mapId,
     mapName: payload.mapName,
-    places: payload.places.filter(
-      (place): place is EncodedPlaceReference =>
-        typeof place.placeId === "string" && place.placeId.length > 0,
-    ),
+    mapEmoji: normalizeOptionalString(payload.mapEmoji),
+    places: payload.places
+      .map(normalizeEncodedPlace)
+      .filter((place): place is EncodedPlacePayload => place !== null),
   };
 }
 
@@ -187,6 +318,7 @@ function normalizeLegacyPayload(
   return {
     mapId: payload.i,
     mapName: payload.n,
+    mapEmoji: undefined,
     places: payload.p
       .filter((place) => typeof place.p === "string" && place.p.length > 0)
       .map((place) => ({
@@ -224,6 +356,7 @@ function parseCompactMapPayload(encoded: string): EncodedMapPayload | null {
   return {
     mapId: decodeCompactField(rawMapId),
     mapName: decodeCompactField(rawMapName),
+    mapEmoji: undefined,
     places: rawPlaceIds
       .map((placeId) => ({
         placeId: decodeCompactField(placeId),
@@ -349,8 +482,9 @@ export async function buildMapStateUrl(
   mapId: string,
   mapName: string,
   places: Place[],
+  mapEmoji?: string,
 ) {
-  const payload = packPayload(mapId, mapName, places);
+  const payload = packPayload(mapId, mapName, mapEmoji, places);
   const serializedPayload =
     typeof CompressionStream === "function"
       ? await compressText(JSON.stringify(payload))
@@ -370,12 +504,14 @@ export async function writeMapStateToUrl(
   mapId: string,
   mapName: string,
   places: Place[],
+  mapEmoji?: string,
 ) {
   const nextUrl = await buildMapStateUrl(
     window.location.href,
     mapId,
     mapName,
     places,
+    mapEmoji,
   );
   const url = new URL(nextUrl);
 

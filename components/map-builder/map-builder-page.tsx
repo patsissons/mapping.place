@@ -124,6 +124,7 @@ type ResolvePlaceApiResponse = HydratePlaceApiResponse & {
 export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   const [currentMapId, setCurrentMapId] = useState(initialMap.mapId);
   const [mapName, setMapName] = useState(initialMap.mapName);
+  const [mapEmoji, setMapEmoji] = useState(initialMap.mapEmoji ?? "");
   const [places, setPlaces] = useState<Place[]>(initialMap.places);
   const [draft, setDraft] = useState<PlaceDraft>(createBlankPlaceDraft());
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>([]);
@@ -152,7 +153,12 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   >("idle");
   const [locationError, setLocationError] = useState<string | null>(null);
   const [addPlaceError, setAddPlaceError] = useState<string | null>(null);
+  const [googleListImportUrl, setGoogleListImportUrl] = useState("");
+  const [googleListImportError, setGoogleListImportError] = useState<
+    string | null
+  >(null);
   const [isResolvingPlaceInput, setIsResolvingPlaceInput] = useState(false);
+  const [isImportingGoogleList, setIsImportingGoogleList] = useState(false);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
     initialMap.places[0]?.id ?? null,
   );
@@ -227,11 +233,13 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     if (initialMap.source === "default" && storedMaps[0]) {
       setCurrentMapId(storedMaps[0].id);
       setMapName(storedMaps[0].name);
+      setMapEmoji(storedMaps[0].emoji ?? "");
       setPlaces(storedMaps[0].places);
       setSelectedPlaceId(storedMaps[0].places[0]?.id ?? null);
     } else {
       setCurrentMapId(initialMap.mapId);
       setMapName(initialMap.mapName);
+      setMapEmoji(initialMap.mapEmoji ?? "");
       setPlaces(initialMap.places);
       setSelectedPlaceId(initialMap.places[0]?.id ?? null);
     }
@@ -251,6 +259,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     }
 
     const effectiveMapName = getEffectiveMapName(mapName);
+    const effectiveMapEmoji = mapEmoji.trim() || undefined;
     const updatedAt = new Date().toISOString();
     const requestId = permalinkRequestIdRef.current + 1;
     const currentUrl = window.location.href;
@@ -261,6 +270,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
       const nextSavedMaps = upsertSavedMap(currentSavedMaps, {
         id: currentMapId,
         name: effectiveMapName,
+        emoji: effectiveMapEmoji,
         places,
         updatedAt,
         source: {
@@ -281,6 +291,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
         currentMapId,
         effectiveMapName,
         places,
+        effectiveMapEmoji,
       );
 
       if (cancelled || requestId !== permalinkRequestIdRef.current) {
@@ -296,7 +307,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [currentMapId, mapName, places]);
+  }, [currentMapId, mapEmoji, mapName, places]);
 
   useEffect(() => {
     if (copyState === "idle") {
@@ -425,6 +436,51 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     }
   }
 
+  type ImportGoogleListApiResponse = {
+    error?: string;
+    mapUrl?: string;
+    placeCount?: number;
+    map?: InitialMapState;
+  };
+
+  async function handleImportGoogleList() {
+    const input = googleListImportUrl.trim();
+
+    if (!input || isImportingGoogleList) {
+      return;
+    }
+
+    setIsImportingGoogleList(true);
+    setGoogleListImportError(null);
+
+    try {
+      const response = await fetch("/api/maps/import/google-list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-mapping-place-client": "web",
+        },
+        body: JSON.stringify({
+          url: input,
+        }),
+      });
+      const payload = (await response.json()) as ImportGoogleListApiResponse;
+
+      if (!response.ok || !payload.mapUrl) {
+        throw new Error(payload.error ?? "Unable to import this Google list.");
+      }
+
+      window.location.assign(payload.mapUrl);
+    } catch (error) {
+      setGoogleListImportError(
+        error instanceof Error
+          ? error.message
+          : "Unable to import this Google list.",
+      );
+      setIsImportingGoogleList(false);
+    }
+  }
+
   function handleRemovePlace(placeId: string) {
     setPlaces((currentPlaces) =>
       currentPlaces.filter((place) => place.id !== placeId),
@@ -448,6 +504,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
 
     setCurrentMapId(savedMap.id);
     setMapName(savedMap.name);
+    setMapEmoji(savedMap.emoji ?? "");
     setPlaces(savedMap.places);
     setSelectedPlaceId(savedMap.places[0]?.id ?? null);
   }
@@ -464,10 +521,13 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
 
     setCurrentMapId(createUlid());
     setMapName(nextName);
+    setMapEmoji("");
     setPlaces([]);
     setSelectedPlaceId(null);
     setDraft(createBlankPlaceDraft());
     setAddPlaceError(null);
+    setGoogleListImportUrl("");
+    setGoogleListImportError(null);
     setFilterText("");
     setOpenOnly(false);
     setIsHeaderExpanded(true);
@@ -484,10 +544,13 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     setSavedMaps([]);
     setCurrentMapId(createUlid());
     setMapName(DEFAULT_MAP_NAME);
+    setMapEmoji("");
     setPlaces(starterPlaces);
     setSelectedPlaceId(starterPlaces[0]?.id ?? null);
     setDraft(createBlankPlaceDraft());
     setAddPlaceError(null);
+    setGoogleListImportUrl("");
+    setGoogleListImportError(null);
     setFilterText("");
     setOpenOnly(false);
     setSortOption("rating:desc");
@@ -597,17 +660,19 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[96rem] flex-col gap-4 p-3 sm:p-4 lg:p-6">
-      <MapHeader
-        mapName={mapName}
-        selectedDate={selectedDate}
-        permalink={permalink}
-        copyState={copyState}
-        savedMapCount={savedMaps.length}
-        isExpanded={isHeaderExpanded}
-        onMapNameChange={setMapName}
-        onMapNameBlur={handleMapNameBlur}
-        onSelectedDateChange={setSelectedDate}
-        onCopyPermalink={handleCopyPermalink}
+        <MapHeader
+          mapName={mapName}
+          mapEmoji={mapEmoji}
+          selectedDate={selectedDate}
+          permalink={permalink}
+          copyState={copyState}
+          savedMapCount={savedMaps.length}
+          isExpanded={isHeaderExpanded}
+          onMapNameChange={setMapName}
+          onMapEmojiChange={setMapEmoji}
+          onMapNameBlur={handleMapNameBlur}
+          onSelectedDateChange={setSelectedDate}
+          onCopyPermalink={handleCopyPermalink}
         onNewMap={handleCreateNewMap}
         onExpandedChange={setIsHeaderExpanded}
       />
@@ -703,6 +768,18 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
                 }}
                 error={addPlaceError}
                 isSubmitting={isResolvingPlaceInput}
+                importUrl={googleListImportUrl}
+                onImportUrlChange={(value) => {
+                  setGoogleListImportUrl(value);
+                  setGoogleListImportError(null);
+                }}
+                onImport={handleImportGoogleList}
+                onImportReset={() => {
+                  setGoogleListImportUrl("");
+                  setGoogleListImportError(null);
+                }}
+                importError={googleListImportError}
+                isImporting={isImportingGoogleList}
               />
             ) : null}
             {activeSidebarTab === "saved" ? (

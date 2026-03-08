@@ -61,6 +61,7 @@ export type SavedMapSource =
 export type SavedMap = {
   id: string;
   name: string;
+  emoji?: string;
   places: Place[];
   updatedAt: string;
   source: SavedMapSource;
@@ -73,6 +74,7 @@ export type PlaceDraft = {
 export type MapState = {
   mapId: string;
   mapName: string;
+  mapEmoji?: string;
   places: Place[];
 };
 

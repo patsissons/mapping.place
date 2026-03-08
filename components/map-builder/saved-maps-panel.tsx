@@ -48,6 +48,7 @@ export function SavedMapsPanel({
                   className="min-w-0 truncate text-left font-medium text-foreground underline-offset-4 hover:underline"
                   onClick={() => onLoadMap(savedMap.id)}
                 >
+                  {savedMap.emoji ? `${savedMap.emoji} ` : ""}
                   {savedMap.name}
                 </button>
                 <Button
