@@ -36,12 +36,12 @@ export function MapCanvas({
   onSelectPlace,
 }: MapCanvasProps) {
   return (
-    <Card className="border-border/60">
-      <CardHeader>
+    <Card className="flex h-full min-h-[24rem] flex-col overflow-hidden border-border/60">
+      <CardHeader className="border-b border-border/60 pb-4">
         <CardTitle className="text-base">Map canvas</CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="h-[32rem] min-h-[28rem] overflow-hidden rounded-lg border border-border/70 sm:h-[36rem]">
+      <CardContent className="flex flex-1 flex-col p-4">
+        <div className="h-full min-h-[24rem] overflow-hidden rounded-lg border border-border/70">
           <LeafletMapCanvas
             places={places}
             selectedPlaceId={selectedPlaceId}

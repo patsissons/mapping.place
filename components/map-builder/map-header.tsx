@@ -1,9 +1,9 @@
+import Link from "next/link";
 import { Copy, Link2, Plus, SquareStack } from "lucide-react";
 
 import { ThemeToggle } from "@/components/map-builder/theme-toggle";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -34,22 +34,13 @@ export function MapHeader({
 }: MapHeaderProps) {
   return (
     <Card className="overflow-hidden border-border/60">
-      <CardHeader className="flex flex-col gap-4 border-b border-border/60 bg-card/80 pb-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge>mapping.place</Badge>
-            <Badge variant="outline">Local-first map builder</Badge>
-          </div>
-          <div>
-            <CardTitle className="text-2xl md:text-3xl">
-              Build richer place collections than a plain saved map.
-            </CardTitle>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              The map renderer stays open and lightweight while the place data
-              model stays ready for future Google Places or custom-map imports.
-            </p>
-          </div>
-        </div>
+      <CardHeader className="flex flex-col gap-4 border-b border-border/60 bg-card/80 pb-4 md:flex-row md:items-center md:justify-between">
+        <Link
+          href="/"
+          className="font-display text-lg font-semibold tracking-tight text-foreground no-underline"
+        >
+          mapping.place
+        </Link>
         <div className="flex items-center gap-2 self-start">
           <Button variant="secondary" onClick={onNewMap}>
             <Plus className="size-4" />

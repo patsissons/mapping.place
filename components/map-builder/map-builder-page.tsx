@@ -1,6 +1,13 @@
 "use client";
 
 import { useDeferredValue, useEffect, useRef, useState } from "react";
+import {
+  ListFilter,
+  MapPinned,
+  Plus,
+  SquareStack,
+  type LucideIcon,
+} from "lucide-react";
 
 import { MapCanvas } from "@/components/map-builder/map-canvas";
 import { MapHeader } from "@/components/map-builder/map-header";
@@ -9,6 +16,7 @@ import { PlaceForm } from "@/components/map-builder/place-form";
 import { PlaceList } from "@/components/map-builder/place-list";
 import { SavedMapsPanel } from "@/components/map-builder/saved-maps-panel";
 import { SummaryStrip } from "@/components/map-builder/summary-strip";
+import { Button } from "@/components/ui/button";
 import { createBlankPlaceDraft, createStarterPlaces } from "@/lib/place-data";
 import { getPlaceStatus } from "@/lib/place-status";
 import { loadSavedMaps, upsertSavedMap, writeSavedMaps } from "@/lib/storage";
@@ -24,6 +32,35 @@ import { readMapStateFromUrl, writeMapStateToUrl } from "@/lib/url-state";
 import { createId, getDateInputValue, parseNumber } from "@/lib/utils";
 
 const DEFAULT_MAP_NAME = "Weekend shortlist";
+
+type SidebarTab = "places" | "filters" | "add" | "saved";
+
+const sidebarTabs: {
+  id: SidebarTab;
+  label: string;
+  icon: LucideIcon;
+}[] = [
+  {
+    id: "places",
+    label: "Places",
+    icon: MapPinned,
+  },
+  {
+    id: "filters",
+    label: "Filters",
+    icon: ListFilter,
+  },
+  {
+    id: "add",
+    label: "Add place",
+    icon: Plus,
+  },
+  {
+    id: "saved",
+    label: "Saved maps",
+    icon: SquareStack,
+  },
+];
 
 function createNewScratchMapName(savedMaps: SavedMap[]) {
   const baseName = "Untitled map";
@@ -60,6 +97,8 @@ export function MapBuilderPage() {
   const [sortOption, setSortOption] = useState<SortOption>("rating:desc");
   const [pinMode, setPinMode] = useState<PinMode>("rating");
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
+  const [activeSidebarTab, setActiveSidebarTab] =
+    useState<SidebarTab>("places");
   const [permalink, setPermalink] = useState("");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
     "idle",
@@ -272,6 +311,10 @@ export function MapBuilderPage() {
     places.length === 0
       ? 0
       : places.reduce((sum, place) => sum + place.rating, 0) / places.length;
+  const visiblePlacesLabel =
+    filteredPlaces.length === places.length
+      ? `${places.length} places in view`
+      : `${filteredPlaces.length} of ${places.length} places shown`;
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[96rem] flex-col gap-4 p-3 sm:p-4 lg:p-6">
@@ -293,40 +336,89 @@ export function MapBuilderPage() {
         averageRating={averageRating}
         totalReviews={totalReviews}
       />
-      <div className="panel-grid items-start">
-        <div className="space-y-4">
-          <SavedMapsPanel
-            savedMaps={savedMaps}
-            currentMapName={getEffectiveMapName(mapName)}
-            onLoadMap={handleLoadMap}
-            onDeleteMap={handleDeleteMap}
-          />
-          <PlaceFilters
-            filterText={filterText}
-            openOnly={openOnly}
-            pinMode={pinMode}
-            sortOption={sortOption}
-            selectedDate={selectedDate}
-            onFilterTextChange={setFilterText}
-            onOpenOnlyChange={setOpenOnly}
-            onPinModeChange={setPinMode}
-            onSortOptionChange={setSortOption}
-          />
-          <PlaceForm
-            draft={draft}
-            onDraftChange={setDraft}
-            onHoursChange={handleHoursChange}
-            onSubmit={handleAddPlace}
-            onReset={() => setDraft(createBlankPlaceDraft())}
-          />
-          <PlaceList
-            places={filteredPlaces}
-            selectedPlaceId={selectedPlaceId}
-            pinMode={pinMode}
-            selectedDate={selectedDate}
-            onSelectPlace={setSelectedPlaceId}
-            onRemovePlace={handleRemovePlace}
-          />
+      <div className="panel-grid lg:h-[calc(100vh-18rem)] lg:min-h-[42rem]">
+        <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card/90 shadow-panel backdrop-blur">
+          <div className="border-b border-border/60 px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                  Sidebar
+                </div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  {visiblePlacesLabel}
+                </div>
+              </div>
+              <div className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
+                {getEffectiveMapName(mapName)}
+              </div>
+            </div>
+            <div
+              className="mt-4 grid grid-cols-2 gap-2"
+              role="tablist"
+              aria-label="Sidebar panels"
+            >
+              {sidebarTabs.map((tab) => {
+                const Icon = tab.icon;
+
+                return (
+                  <Button
+                    key={tab.id}
+                    type="button"
+                    variant={activeSidebarTab === tab.id ? "default" : "outline"}
+                    className="justify-start"
+                    role="tab"
+                    aria-selected={activeSidebarTab === tab.id}
+                    onClick={() => setActiveSidebarTab(tab.id)}
+                  >
+                    <Icon className="size-4" />
+                    {tab.label}
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {activeSidebarTab === "places" ? (
+              <PlaceList
+                places={filteredPlaces}
+                selectedPlaceId={selectedPlaceId}
+                pinMode={pinMode}
+                selectedDate={selectedDate}
+                onSelectPlace={setSelectedPlaceId}
+                onRemovePlace={handleRemovePlace}
+              />
+            ) : null}
+            {activeSidebarTab === "filters" ? (
+              <PlaceFilters
+                filterText={filterText}
+                openOnly={openOnly}
+                pinMode={pinMode}
+                sortOption={sortOption}
+                selectedDate={selectedDate}
+                onFilterTextChange={setFilterText}
+                onOpenOnlyChange={setOpenOnly}
+                onPinModeChange={setPinMode}
+                onSortOptionChange={setSortOption}
+              />
+            ) : null}
+            {activeSidebarTab === "add" ? (
+              <PlaceForm
+                draft={draft}
+                onDraftChange={setDraft}
+                onHoursChange={handleHoursChange}
+                onSubmit={handleAddPlace}
+                onReset={() => setDraft(createBlankPlaceDraft())}
+              />
+            ) : null}
+            {activeSidebarTab === "saved" ? (
+              <SavedMapsPanel
+                savedMaps={savedMaps}
+                currentMapName={getEffectiveMapName(mapName)}
+                onLoadMap={handleLoadMap}
+                onDeleteMap={handleDeleteMap}
+              />
+            ) : null}
+          </div>
         </div>
         <MapCanvas
           places={filteredPlaces}
