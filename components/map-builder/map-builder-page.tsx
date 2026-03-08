@@ -1,6 +1,12 @@
 "use client";
 
-import { useDeferredValue, useEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import {
   ListFilter,
   MapPinned,
@@ -23,8 +29,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { parseGooglePlaceInput } from "@/lib/google-place";
 import {
+  markGooglePlaceHydrationFailed,
+  markGooglePlaceHydrationPending,
+  parseGooglePlaceInput,
+  placeNeedsGoogleHydration,
+} from "@/lib/google-place";
+import {
+  DEFAULT_MAP_NAME,
   createBlankPlaceDraft,
   createEmptyHours,
   createStarterPlaces,
@@ -37,6 +49,7 @@ import {
   writeSavedMaps,
 } from "@/lib/storage";
 import {
+  type InitialMapState,
   type PinMode,
   type Place,
   type PlaceDraft,
@@ -49,8 +62,6 @@ import {
   writeMapStateToUrl,
 } from "@/lib/url-state";
 import { createId, createUlid, getDateInputValue } from "@/lib/utils";
-
-const DEFAULT_MAP_NAME = "Weekend shortlist";
 
 type SidebarTab = "places" | "filters" | "add" | "saved";
 
@@ -103,10 +114,19 @@ function getEffectiveMapName(value: string) {
   return value.trim() || DEFAULT_MAP_NAME;
 }
 
-export function MapBuilderPage() {
-  const [currentMapId, setCurrentMapId] = useState(createUlid());
-  const [mapName, setMapName] = useState(DEFAULT_MAP_NAME);
-  const [places, setPlaces] = useState<Place[]>(createStarterPlaces());
+type MapBuilderPageProps = {
+  initialMap: InitialMapState;
+};
+
+type HydratePlaceApiResponse = {
+  error?: string;
+  place: Place;
+};
+
+export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
+  const [currentMapId, setCurrentMapId] = useState(initialMap.mapId);
+  const [mapName, setMapName] = useState(initialMap.mapName);
+  const [places, setPlaces] = useState<Place[]>(initialMap.places);
   const [draft, setDraft] = useState<PlaceDraft>(createBlankPlaceDraft());
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>([]);
   const [isHeaderExpanded, setIsHeaderExpanded] = useState(true);
@@ -117,7 +137,6 @@ export function MapBuilderPage() {
   const [openOnly, setOpenOnly] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>("rating:desc");
   const [pinMode, setPinMode] = useState<PinMode>("rating");
-  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [activeSidebarTab, setActiveSidebarTab] =
     useState<SidebarTab>("places");
   const [permalink, setPermalink] = useState("");
@@ -134,36 +153,81 @@ export function MapBuilderPage() {
     "idle" | "loading" | "ready" | "error"
   >("idle");
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(
+    initialMap.places[0]?.id ?? null,
+  );
   const initializedRef = useRef(false);
+  const pendingHydrationIdsRef = useRef(new Set<string>());
   const skipNextAutosaveRef = useRef(false);
   const deferredFilterText = useDeferredValue(filterText);
 
+  async function hydratePlaceById(localPlaceId: string, googlePlaceId: string) {
+    try {
+      const response = await fetch(`/api/places/${encodeURIComponent(googlePlaceId)}`, {
+        method: "POST",
+        headers: {
+          "x-mapping-place-client": "web",
+        },
+      });
+      const payload = (await response.json()) as HydratePlaceApiResponse;
+
+      if (!response.ok) {
+        throw new Error(payload.error ?? "Unable to hydrate this Google place.");
+      }
+
+      startTransition(() => {
+        setPlaces((currentPlaces) =>
+          currentPlaces.map((place) =>
+            place.id === localPlaceId
+              ? {
+                  ...payload.place,
+                  id: place.id,
+                  notes: place.notes,
+                  sourceUrl: place.sourceUrl ?? payload.place.sourceUrl,
+                }
+              : place,
+          ),
+        );
+      });
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Unable to hydrate this Google place.";
+
+      startTransition(() => {
+        setPlaces((currentPlaces) =>
+          currentPlaces.map((place) =>
+            place.id === localPlaceId
+              ? markGooglePlaceHydrationFailed(place, message)
+              : place,
+          ),
+        );
+      });
+    } finally {
+      pendingHydrationIdsRef.current.delete(localPlaceId);
+    }
+  }
+
   useEffect(() => {
     const storedMaps = loadSavedMaps();
-    const urlMap = readMapStateFromUrl(
-      new URLSearchParams(window.location.search),
-    );
-    const initialMap = urlMap
-      ? {
-          id: urlMap.mapId ?? createUlid(),
-          name: urlMap.mapName,
-          places: urlMap.places,
-        }
-      : (storedMaps[0] ?? {
-          id: createUlid(),
-          name: DEFAULT_MAP_NAME,
-          places: createStarterPlaces(),
-        });
 
     writeSavedMaps(storedMaps);
     setSavedMaps(storedMaps);
-    setCurrentMapId(initialMap.id);
-    setMapName(initialMap.name);
-    setPlaces(initialMap.places);
-    setSelectedPlaceId(initialMap.places[0]?.id ?? null);
+
+    if (initialMap.source === "default" && storedMaps[0]) {
+      setCurrentMapId(storedMaps[0].id);
+      setMapName(storedMaps[0].name);
+      setPlaces(storedMaps[0].places);
+      setSelectedPlaceId(storedMaps[0].places[0]?.id ?? null);
+    } else {
+      setCurrentMapId(initialMap.mapId);
+      setMapName(initialMap.mapName);
+      setPlaces(initialMap.places);
+      setSelectedPlaceId(initialMap.places[0]?.id ?? null);
+    }
+
     setPermalink(window.location.href);
     initializedRef.current = true;
-  }, []);
+  }, [initialMap]);
 
   useEffect(() => {
     if (!initializedRef.current || !currentMapId || !mapName.trim()) {
@@ -206,6 +270,41 @@ export function MapBuilderPage() {
 
     return () => window.clearTimeout(timer);
   }, [copyState]);
+
+  useEffect(() => {
+    if (!initializedRef.current) {
+      return;
+    }
+
+    const candidates = places.filter(
+      (place) =>
+        placeNeedsGoogleHydration(place) &&
+        place.placeId &&
+        !pendingHydrationIdsRef.current.has(place.id),
+    );
+
+    if (candidates.length === 0) {
+      return;
+    }
+
+    const candidateIds = new Set(candidates.map((place) => place.id));
+
+    for (const candidate of candidates) {
+      pendingHydrationIdsRef.current.add(candidate.id);
+    }
+
+    startTransition(() => {
+      setPlaces((currentPlaces) =>
+        currentPlaces.map((place) =>
+          candidateIds.has(place.id) ? markGooglePlaceHydrationPending(place) : place,
+        ),
+      );
+    });
+
+    for (const candidate of candidates) {
+      void hydratePlaceById(candidate.id, candidate.placeId!);
+    }
+  }, [places]);
 
   function handleMapNameBlur() {
     if (!mapName.trim()) {

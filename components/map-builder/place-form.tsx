@@ -34,9 +34,9 @@ export function PlaceForm({
       <CardHeader>
         <CardTitle className="text-base">Add from Google</CardTitle>
         <CardDescription>
-          Paste a Google Place ID or a Google Maps place URL. Full Google URLs
-          can expose coordinates and labels immediately; short redirect links
-          are saved as unresolved references for later hydration.
+          Paste a Google Place ID or a Google Maps place URL. The app will save
+          whatever the input exposes immediately, then hydrate the rest of the
+          place data through the server route when a Google Place ID is present.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

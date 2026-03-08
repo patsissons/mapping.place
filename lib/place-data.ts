@@ -1,6 +1,8 @@
 import { createId } from "@/lib/utils";
 import { type OpeningHours, type Place, type PlaceDraft } from "@/lib/types";
 
+export const DEFAULT_MAP_NAME = "Weekend shortlist";
+
 export const DAY_LABELS = {
   sunday: "Sun",
   monday: "Mon",

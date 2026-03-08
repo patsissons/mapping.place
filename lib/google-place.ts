@@ -1,3 +1,5 @@
+import { type Place } from "@/lib/types";
+
 type ParsedGooglePlaceInput = {
   name: string;
   placeId?: string;
@@ -41,6 +43,19 @@ function extractPlaceId(value: string) {
   const match = value.match(/(?:place_id:)?(ChI[\w-]+)/);
 
   return match?.[1];
+}
+
+function hasCoordinates(place: Place) {
+  return (
+    typeof place.lat === "number" &&
+    typeof place.lng === "number" &&
+    Number.isFinite(place.lat) &&
+    Number.isFinite(place.lng)
+  );
+}
+
+function hasConfiguredHours(place: Place) {
+  return Object.values(place.hours).some((hours) => hours.enabled);
 }
 
 function parseCoordinatePair(value: string | null) {
@@ -128,4 +143,56 @@ export function parseGooglePlaceInput(input: string) {
     lat: coordinates?.lat,
     lng: coordinates?.lng,
   } satisfies ParsedGooglePlaceInput;
+}
+
+export function isGooglePlaceId(value?: string): value is string {
+  return typeof value === "string" && /^ChI[\w-]+$/.test(value);
+}
+
+export function markGooglePlaceHydrationPending(place: Place): Place {
+  return {
+    ...place,
+    hydration: {
+      provider: "google-places",
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+    },
+  };
+}
+
+export function markGooglePlaceHydrationFailed(
+  place: Place,
+  error: string,
+): Place {
+  return {
+    ...place,
+    hydration: {
+      provider: "google-places",
+      status: "failed",
+      error,
+      updatedAt: new Date().toISOString(),
+    },
+  };
+}
+
+export function placeNeedsGoogleHydration(place: Place) {
+  if (!isGooglePlaceId(place.placeId)) {
+    return false;
+  }
+
+  if (
+    place.hydration?.status === "pending" ||
+    place.hydration?.status === "hydrated" ||
+    place.hydration?.status === "failed"
+  ) {
+    return false;
+  }
+
+  return (
+    !hasCoordinates(place) ||
+    place.rating <= 0 ||
+    place.reviewCount <= 0 ||
+    !hasConfiguredHours(place) ||
+    place.name.startsWith("Google place ")
+  );
 }

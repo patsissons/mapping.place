@@ -31,9 +31,17 @@ function hasConfiguredHours(place: Place) {
 }
 
 function getPlaceDetail(place: Place, selectedDate: string) {
+  if (place.hydration?.status === "pending") {
+    return "Hydrating Google Place details...";
+  }
+
+  if (place.hydration?.status === "failed") {
+    return place.hydration.error ?? "Google Place lookup failed.";
+  }
+
   if (!hasCoordinates(place)) {
     return place.placeId
-      ? `Saved Google reference ${place.placeId}. Add a full Google place URL later to capture map coordinates.`
+      ? `Saved Google reference ${place.placeId}. Coordinates and place details will populate after hydration succeeds.`
       : "Saved Google link. Coordinates will appear when the link exposes them or hydration is added.";
   }
 
@@ -141,6 +149,12 @@ export function PlaceList({
                     <Badge variant={status.isOpen ? "default" : "secondary"}>
                       {status.label}
                     </Badge>
+                  ) : null}
+                  {place.hydration?.status === "pending" ? (
+                    <Badge variant="secondary">Hydrating</Badge>
+                  ) : null}
+                  {place.hydration?.status === "failed" ? (
+                    <Badge variant="secondary">Lookup failed</Badge>
                   ) : null}
                   {!hasCoordinates(place) ? (
                     <Badge variant="secondary">Location pending</Badge>

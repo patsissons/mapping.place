@@ -26,6 +26,13 @@ export type DailyHours = {
 
 export type OpeningHours = Record<DayKey, DailyHours>;
 
+export type PlaceHydration = {
+  provider: "google-places";
+  status: "pending" | "hydrated" | "failed";
+  updatedAt: string;
+  error?: string;
+};
+
 export type Place = {
   id: string;
   placeId?: string;
@@ -38,6 +45,7 @@ export type Place = {
   rating: number;
   reviewCount: number;
   hours: OpeningHours;
+  hydration?: PlaceHydration;
 };
 
 export type SavedMapSource =
@@ -60,4 +68,14 @@ export type SavedMap = {
 
 export type PlaceDraft = {
   googleInput: string;
+};
+
+export type MapState = {
+  mapId: string;
+  mapName: string;
+  places: Place[];
+};
+
+export type InitialMapState = MapState & {
+  source: "default" | "url";
 };

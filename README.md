@@ -18,6 +18,10 @@ The app intentionally keeps the visual map renderer decoupled from place data so
 future Google Places or custom Google Map imports can be added without coupling
 the whole UI to Google Maps display licensing.
 
+The current builder now resolves URL-backed maps on the server, hydrates Google
+Place IDs before the page renders, and uses an internal API route for
+single-place hydration from the client.
+
 ## Features in this scaffold
 
 - Responsive layout down to 320px wide
@@ -33,6 +37,8 @@ the whole UI to Google Maps display licensing.
   - review count
   - open / closed status
 - Shareable permalink generation via URL-encoded map payload
+- Server-side hydration of Google Place IDs found in the permalink payload
+- Internal `/api/places/[placeId]` route for single-place hydration
 - Local storage persistence keyed by map name
 - Optional `placeId` on each place to support future Google data hydration/import
 
@@ -52,9 +58,10 @@ the whole UI to Google Maps display licensing.
 
 3. Open [http://localhost:3000](http://localhost:3000).
 
-No environment variables are required for the current local-first builder flow.
-The root [`.env.example`](/Users/patsissons/src/github.com/patsissons/mapping.place/.env.example)
-is reserved for future Google Places import or hydration work.
+Copy [`.env.example`](/Users/patsissons/src/github.com/patsissons/mapping.place/.env.example)
+to `.env.local` and set `GOOGLE_PLACES_API_KEY` if you want server-side Google
+Place hydration to work locally. Without it, the app still loads, but Google
+Place references remain unresolved and the hydration route returns a `503`.
 
 ## Useful scripts
 
@@ -73,15 +80,14 @@ This project is intended for Vercel deployment.
 
 1. Import the repository into Vercel.
 2. Keep the framework preset as Next.js.
-3. Add environment variables later only when Google OAuth / Google Places import
-   is introduced.
+3. Add `GOOGLE_PLACES_API_KEY` when you want Google Place hydration enabled.
 4. Deploy.
 
 ## Notes for the next iteration
 
 - Add a Google OAuth flow only for optional import of user-owned custom maps.
-- Hydrate or refresh place context from Google Places using stored `placeId`
-  values where available.
+- Add auth and rate limiting around the internal place hydration route before
+  exposing higher-volume traffic to it.
 - Keep URL payloads compact; if map size becomes a problem, swap the current
   base64-url encoding for compression without changing the higher-level app
   architecture.
