@@ -4,6 +4,12 @@ import { MapPin, MessageSquareMore, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getPlaceStatus } from "@/lib/place-status";
+import {
+  getGoogleMapsUrl,
+  getPlaceDetail,
+  hasConfiguredHours,
+  hasCoordinates,
+} from "@/lib/place-presentation";
 import { type Place } from "@/lib/types";
 import { cn, formatCompactNumber } from "@/lib/utils";
 
@@ -16,59 +22,6 @@ type PlaceListProps = {
   onSelectPlace: (placeId: string) => void;
   onRemovePlace: (placeId: string) => void;
 };
-
-function hasCoordinates(place: Place) {
-  return (
-    typeof place.lat === "number" &&
-    typeof place.lng === "number" &&
-    Number.isFinite(place.lat) &&
-    Number.isFinite(place.lng)
-  );
-}
-
-function hasConfiguredHours(place: Place) {
-  return Object.values(place.hours).some((hours) => hours.enabled);
-}
-
-function getGoogleMapsUrl(place: Place) {
-  if (place.sourceUrl?.trim()) {
-    return place.sourceUrl.trim();
-  }
-
-  if (place.placeId?.trim()) {
-    return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(
-      place.placeId.trim(),
-    )}`;
-  }
-
-  if (hasCoordinates(place)) {
-    return `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
-  }
-
-  return null;
-}
-
-function getPlaceDetail(place: Place, selectedDate: string) {
-  if (place.hydration?.status === "pending") {
-    return "Hydrating Google Place details...";
-  }
-
-  if (place.hydration?.status === "failed") {
-    return place.hydration.error ?? "Google Place lookup failed.";
-  }
-
-  if (!hasCoordinates(place)) {
-    return place.placeId
-      ? `Saved Google reference ${place.placeId}. Coordinates and place details will populate after hydration succeeds.`
-      : "Saved Google link. Coordinates will appear when the link exposes them or hydration is added.";
-  }
-
-  if (!hasConfiguredHours(place)) {
-    return "Coordinates available on the map.";
-  }
-
-  return getPlaceStatus(place, selectedDate).detail;
-}
 
 export function PlaceList({
   places,

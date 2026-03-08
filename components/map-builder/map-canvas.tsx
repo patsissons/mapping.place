@@ -33,6 +33,7 @@ type MapCanvasProps = {
   locationStatus: "idle" | "loading" | "ready" | "error";
   locationError: string | null;
   onLocateUser: () => void;
+  onClearSelectedPlace: () => void;
   onSelectPlace: (placeId: string) => void;
 };
 
@@ -47,6 +48,7 @@ export function MapCanvas({
   locationStatus,
   locationError,
   onLocateUser,
+  onClearSelectedPlace,
   onSelectPlace,
 }: MapCanvasProps) {
   return (
@@ -62,6 +64,7 @@ export function MapCanvas({
               selectedPlaceFocusRequest={selectedPlaceFocusRequest}
               currentLocation={currentLocation}
               locationFocusRequest={locationFocusRequest}
+              onClearSelectedPlace={onClearSelectedPlace}
               onSelectPlace={onSelectPlace}
             />
           </div>

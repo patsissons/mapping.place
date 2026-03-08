@@ -1,16 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import {
   CircleMarker,
   Marker,
   MapContainer,
+  Popup,
   TileLayer,
   useMap,
 } from "react-leaflet";
 
+import { PlaceMapPopup } from "@/components/map-builder/place-map-popup";
 import { getPinAppearance } from "@/lib/place-status";
+import { hasCoordinates } from "@/lib/place-presentation";
 import { type PinMode, type Place } from "@/lib/types";
 import { formatCompactNumber } from "@/lib/utils";
 
@@ -22,6 +25,7 @@ type OpenMapCanvasProps = {
   selectedPlaceFocusRequest: number;
   currentLocation: { lat: number; lng: number } | null;
   locationFocusRequest: number;
+  onClearSelectedPlace: () => void;
   onSelectPlace: (placeId: string) => void;
 };
 
@@ -33,15 +37,6 @@ function formatPinLabel(label: string, pinMode: PinMode) {
   const parsed = Number(label);
 
   return Number.isFinite(parsed) ? formatCompactNumber(parsed) : label;
-}
-
-function hasCoordinates(place: Place): place is Place & { lat: number; lng: number } {
-  return (
-    typeof place.lat === "number" &&
-    typeof place.lng === "number" &&
-    Number.isFinite(place.lat) &&
-    Number.isFinite(place.lng)
-  );
 }
 
 function createMarkerIcon(
@@ -62,6 +57,66 @@ function createMarkerIcon(
     iconSize: [52, 52],
     html: `<div class="mapping-place-pin" style="--pin-bg:${appearance.background};--pin-fg:${appearance.foreground};transform:scale(${scale});border-color:${borderColor}">${label}</div>`,
   });
+}
+
+function PlaceMarker({
+  place,
+  places,
+  pinMode,
+  selectedDate,
+  isSelected,
+  onClearSelectedPlace,
+  onSelectPlace,
+}: {
+  place: Place & { lat: number; lng: number };
+  places: Array<Place & { lat: number; lng: number }>;
+  pinMode: PinMode;
+  selectedDate: string;
+  isSelected: boolean;
+  onClearSelectedPlace: () => void;
+  onSelectPlace: (placeId: string) => void;
+}) {
+  const markerRef = useRef<L.Marker | null>(null);
+
+  useEffect(() => {
+    const marker = markerRef.current;
+
+    if (!marker) {
+      return;
+    }
+
+    if (isSelected) {
+      marker.openPopup();
+      return;
+    }
+
+    marker.closePopup();
+  }, [isSelected]);
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={[place.lat, place.lng]}
+      icon={createMarkerIcon(place, places, pinMode, selectedDate, isSelected)}
+      eventHandlers={{
+        click: () => onSelectPlace(place.id),
+        popupclose: () => {
+          if (isSelected) {
+            onClearSelectedPlace();
+          }
+        },
+      }}
+    >
+      <Popup
+        className="mapping-place-popup"
+        offset={[0, -26]}
+        closeButton
+        autoPan
+      >
+        <PlaceMapPopup place={place} selectedDate={selectedDate} />
+      </Popup>
+    </Marker>
+  );
 }
 
 function MapViewport({
@@ -129,6 +184,7 @@ export function OpenMapCanvas({
   selectedPlaceFocusRequest,
   currentLocation,
   locationFocusRequest,
+  onClearSelectedPlace,
   onSelectPlace,
 }: OpenMapCanvasProps) {
   const locatedPlaces = places.filter(hasCoordinates);
@@ -163,19 +219,15 @@ export function OpenMapCanvas({
         />
       ) : null}
       {locatedPlaces.map((place) => (
-        <Marker
+        <PlaceMarker
           key={place.id}
-          position={[place.lat, place.lng]}
-          icon={createMarkerIcon(
-            place,
-            locatedPlaces,
-            pinMode,
-            selectedDate,
-            selectedPlaceId === place.id,
-          )}
-          eventHandlers={{
-            click: () => onSelectPlace(place.id),
-          }}
+          place={place}
+          places={locatedPlaces}
+          pinMode={pinMode}
+          selectedDate={selectedDate}
+          isSelected={selectedPlaceId === place.id}
+          onClearSelectedPlace={onClearSelectedPlace}
+          onSelectPlace={onSelectPlace}
         />
       ))}
     </MapContainer>

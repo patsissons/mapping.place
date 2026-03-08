@@ -817,6 +817,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
           locationStatus={locationStatus}
           locationError={locationError}
           onLocateUser={handleLocateUser}
+          onClearSelectedPlace={() => setSelectedPlaceId(null)}
           onSelectPlace={handleSelectPlace}
         />
       </div>
