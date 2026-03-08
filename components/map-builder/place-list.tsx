@@ -169,7 +169,7 @@ export function PlaceList({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="shrink-0"
+                  className="size-8 shrink-0 mt-[-0.125rem]"
                   onClick={(event) => {
                     event.stopPropagation();
                     onRemovePlace(place.id);
