@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { type PinMode, type Place } from "@/lib/types";
 
 const LeafletMapCanvas = dynamic(
@@ -13,7 +13,7 @@ const LeafletMapCanvas = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="flex h-full min-h-[24rem] items-center justify-center rounded-lg border border-dashed border-border bg-secondary/40 text-sm text-muted-foreground">
+      <div className="flex h-full min-h-[24rem] items-center justify-center text-sm text-muted-foreground">
         Loading map canvas...
       </div>
     ),
@@ -36,12 +36,9 @@ export function MapCanvas({
   onSelectPlace,
 }: MapCanvasProps) {
   return (
-    <Card className="flex h-full min-h-[24rem] flex-col overflow-hidden border-border/60">
-      <CardHeader className="border-b border-border/60 pb-4">
-        <CardTitle className="text-base">Map canvas</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col p-4">
-        <div className="h-full min-h-[24rem] overflow-hidden rounded-lg border border-border/70">
+    <Card className="h-full min-h-[24rem] overflow-hidden border-border/60">
+      <CardContent className="h-full p-0">
+        <div className="h-full min-h-[24rem]">
           <LeafletMapCanvas
             places={places}
             selectedPlaceId={selectedPlaceId}

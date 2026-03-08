@@ -339,18 +339,8 @@ export function MapBuilderPage() {
       <div className="panel-grid lg:h-[calc(100vh-18rem)] lg:min-h-[42rem]">
         <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card/90 shadow-panel backdrop-blur">
           <div className="border-b border-border/60 px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                  Sidebar
-                </div>
-                <div className="mt-1 text-sm text-muted-foreground">
-                  {visiblePlacesLabel}
-                </div>
-              </div>
-              <div className="rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
-                {getEffectiveMapName(mapName)}
-              </div>
+            <div className="text-sm text-muted-foreground">
+              {visiblePlacesLabel}
             </div>
             <div
               className="mt-4 grid grid-cols-2 gap-2"
@@ -382,7 +372,6 @@ export function MapBuilderPage() {
               <PlaceList
                 places={filteredPlaces}
                 selectedPlaceId={selectedPlaceId}
-                pinMode={pinMode}
                 selectedDate={selectedDate}
                 onSelectPlace={setSelectedPlaceId}
                 onRemovePlace={handleRemovePlace}
