@@ -1,4 +1,5 @@
 import { MapBuilderPage } from "@/components/map-builder/map-builder-page";
+import { getAppSession } from "@/lib/auth-session";
 import { resolveInitialMapState } from "@/lib/place-hydration";
 
 type HomePageProps = {
@@ -6,7 +7,13 @@ type HomePageProps = {
 };
 
 export default async function Home({ searchParams }: HomePageProps) {
+  const session = await getAppSession();
   const initialMap = await resolveInitialMapState((await searchParams) ?? {});
 
-  return <MapBuilderPage initialMap={initialMap} />;
+  return (
+    <MapBuilderPage
+      initialMap={initialMap}
+      isAuthenticated={Boolean(session)}
+    />
+  );
 }

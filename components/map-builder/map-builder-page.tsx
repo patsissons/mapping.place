@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   startTransition,
   useDeferredValue,
   useEffect,
@@ -112,6 +113,7 @@ function getEffectiveMapName(value: string) {
 
 type MapBuilderPageProps = {
   initialMap: InitialMapState;
+  isAuthenticated: boolean;
 };
 
 type HydratePlaceApiResponse = {
@@ -128,7 +130,16 @@ function shouldStartWithExpandedHeader(initialMap: InitialMapState) {
   return initialMap.source !== "url";
 }
 
-export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
+function toRelativeUrl(href: string) {
+  const url = new URL(href);
+
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
+export function MapBuilderPage({
+  initialMap,
+  isAuthenticated,
+}: MapBuilderPageProps) {
   const [currentMapId, setCurrentMapId] = useState(initialMap.mapId);
   const [mapName, setMapName] = useState(initialMap.mapName);
   const [mapEmoji, setMapEmoji] = useState(initialMap.mapEmoji ?? "");
@@ -181,7 +192,31 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   const [decodedUrlState, setDecodedUrlState] =
     useState<Awaited<ReturnType<typeof readMapPayloadFromUrl>>>(null);
 
-  async function hydratePlaceById(localPlaceId: string, googlePlaceId: string) {
+  const redirectToLogin = useCallback(async () => {
+    const loginUrl = new URL("/login", window.location.origin);
+
+    try {
+      const callbackUrl = await buildMapStateUrl(
+        window.location.href,
+        currentMapId,
+        getEffectiveMapName(mapName),
+        places,
+        mapEmoji.trim() || undefined,
+      );
+
+      loginUrl.searchParams.set("callbackUrl", toRelativeUrl(callbackUrl));
+    } catch {
+      loginUrl.searchParams.set(
+        "callbackUrl",
+        `${window.location.pathname}${window.location.search}${window.location.hash}`,
+      );
+    }
+
+    window.location.assign(loginUrl.toString());
+  }, [currentMapId, mapEmoji, mapName, places]);
+
+  const hydratePlaceById = useCallback(
+    async (localPlaceId: string, googlePlaceId: string) => {
     try {
       const response = await fetch(
         `/api/places/${encodeURIComponent(googlePlaceId)}`,
@@ -192,6 +227,12 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
           },
         },
       );
+
+      if (response.status === 401) {
+        await redirectToLogin();
+        return;
+      }
+
       const payload = (await response.json()) as HydratePlaceApiResponse;
 
       if (!response.ok) {
@@ -232,7 +273,9 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     } finally {
       pendingHydrationIdsRef.current.delete(localPlaceId);
     }
-  }
+    },
+    [redirectToLogin],
+  );
 
   useEffect(() => {
     const storedMaps = loadSavedMaps();
@@ -309,8 +352,11 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
         return;
       }
 
-      window.history.replaceState({}, "", nextUrl);
       setPermalink(nextUrl);
+
+      if (isAuthenticated) {
+        window.history.replaceState({}, "", nextUrl);
+      }
     }
 
     void syncPermalink();
@@ -318,7 +364,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     return () => {
       cancelled = true;
     };
-  }, [currentMapId, mapEmoji, mapName, places]);
+  }, [currentMapId, isAuthenticated, mapEmoji, mapName, places]);
 
   useEffect(() => {
     if (copyState === "idle") {
@@ -347,6 +393,10 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   }, [isGoogleListImportModalOpen, isImportingGoogleList]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
     if (!initializedRef.current) {
       return;
     }
@@ -381,7 +431,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
     for (const candidate of candidates) {
       void hydratePlaceById(candidate.id, candidate.placeId!);
     }
-  }, [places]);
+  }, [hydratePlaceById, isAuthenticated, places]);
 
   useEffect(() => {
     if (!permalink) {
@@ -421,6 +471,11 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
       return;
     }
 
+    if (!isAuthenticated) {
+      await redirectToLogin();
+      return;
+    }
+
     setIsResolvingPlaceInput(true);
     setAddPlaceError(null);
 
@@ -435,6 +490,12 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
           input,
         }),
       });
+
+      if (response.status === 401) {
+        await redirectToLogin();
+        return;
+      }
+
       const payload = (await response.json()) as ResolvePlaceApiResponse;
 
       if (!response.ok || !payload.place) {
@@ -477,6 +538,11 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
       return;
     }
 
+    if (!isAuthenticated) {
+      await redirectToLogin();
+      return;
+    }
+
     setIsImportingGoogleList(true);
     setGoogleListImportError(null);
 
@@ -491,6 +557,12 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
           url: input,
         }),
       });
+
+      if (response.status === 401) {
+        await redirectToLogin();
+        return;
+      }
+
       const payload = (await response.json()) as ImportGoogleListApiResponse;
 
       if (!response.ok || !payload.mapUrl) {
@@ -695,12 +767,17 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
         permalink={permalink}
         copyState={copyState}
         isExpanded={isHeaderExpanded}
-        authControls={<SignOutButton />}
+        authControls={isAuthenticated ? <SignOutButton /> : null}
         onMapNameChange={setMapName}
         onMapEmojiChange={setMapEmoji}
         onMapNameBlur={handleMapNameBlur}
         onCopyPermalink={handleCopyPermalink}
         onImportGoogleList={() => {
+          if (!isAuthenticated) {
+            void redirectToLogin();
+            return;
+          }
+
           setIsGoogleListImportModalOpen(true);
           setGoogleListImportError(null);
         }}

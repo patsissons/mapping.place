@@ -4,9 +4,7 @@ import { LoginForm } from "@/components/auth/login-form";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { getAppSession } from "@/lib/auth-session";
 import { getMissingAppAuthEnvVars } from "@/lib/app-auth";
@@ -17,21 +15,21 @@ type LoginPageProps = {
 
 function readCallbackUrl(value: string | string[] | undefined) {
   if (typeof value !== "string" || !value.startsWith("/")) {
-    return "/";
+    return "/" as const;
   }
 
-  return value;
+  return value as `/${string}`;
 }
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const params = (await searchParams) ?? {};
+  const callbackUrl = readCallbackUrl(params.callbackUrl);
   const session = await getAppSession();
 
   if (session) {
-    redirect("/");
+    redirect(callbackUrl as never);
   }
 
-  const params = (await searchParams) ?? {};
-  const callbackUrl = readCallbackUrl(params.callbackUrl);
   const missingEnvVars = getMissingAppAuthEnvVars();
 
   return (
