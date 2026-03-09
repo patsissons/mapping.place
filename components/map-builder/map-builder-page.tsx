@@ -124,6 +124,10 @@ type ResolvePlaceApiResponse = HydratePlaceApiResponse & {
   inputType?: "place-id" | "google-url" | "short-url";
 };
 
+function shouldStartWithExpandedHeader(initialMap: InitialMapState) {
+  return initialMap.source !== "url";
+}
+
 export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   const [currentMapId, setCurrentMapId] = useState(initialMap.mapId);
   const [mapName, setMapName] = useState(initialMap.mapName);
@@ -131,7 +135,9 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
   const [places, setPlaces] = useState<Place[]>(initialMap.places);
   const [draft, setDraft] = useState<PlaceDraft>(createBlankPlaceDraft());
   const [savedMaps, setSavedMaps] = useState<SavedMap[]>([]);
-  const [isHeaderExpanded, setIsHeaderExpanded] = useState(true);
+  const [isHeaderExpanded, setIsHeaderExpanded] = useState(() =>
+    shouldStartWithExpandedHeader(initialMap),
+  );
   const [selectedDate, setSelectedDate] = useState(
     getDateInputValue(new Date()),
   );
@@ -248,6 +254,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
       setSelectedPlaceId(initialMap.places[0]?.id ?? null);
     }
 
+    setIsHeaderExpanded(shouldStartWithExpandedHeader(initialMap));
     setPermalink(window.location.href);
     initializedRef.current = true;
   }, [initialMap]);
