@@ -23,6 +23,7 @@ const LeafletMapCanvas = dynamic(
 );
 
 type MapCanvasProps = {
+  className?: string;
   places: Place[];
   selectedPlaceId: string | null;
   pinMode: PinMode;
@@ -38,6 +39,7 @@ type MapCanvasProps = {
 };
 
 export function MapCanvas({
+  className,
   places,
   selectedPlaceId,
   pinMode,
@@ -52,10 +54,10 @@ export function MapCanvas({
   onSelectPlace,
 }: MapCanvasProps) {
   return (
-    <div className="relative h-full min-h-[24rem]">
-      <Card className="h-full min-h-[24rem] overflow-hidden border-border/60">
+    <div className={`relative h-full min-h-[36rem] lg:min-h-[24rem] ${className ?? ""}`}>
+      <Card className="h-full min-h-[36rem] overflow-hidden border-border/60 lg:min-h-[24rem]">
         <CardContent className="h-full p-0">
-          <div className="h-full min-h-[24rem]">
+          <div className="h-full min-h-[36rem] lg:min-h-[24rem]">
             <LeafletMapCanvas
               places={places}
               selectedPlaceId={selectedPlaceId}

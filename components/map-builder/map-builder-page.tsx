@@ -721,7 +721,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
         </Card>
       ) : null}
       <div className="panel-grid lg:h-[calc(100vh-18rem)] lg:min-h-[42rem]">
-        <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card/90 shadow-panel backdrop-blur">
+        <div className="order-2 flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-border/60 bg-card/90 shadow-panel backdrop-blur lg:order-1">
           <div className="border-b border-border/60 px-4 py-4">
             <div className="text-sm text-muted-foreground">
               {visiblePlacesLabel}
@@ -807,6 +807,7 @@ export function MapBuilderPage({ initialMap }: MapBuilderPageProps) {
           </div>
         </div>
         <MapCanvas
+          className="order-1 lg:order-2"
           places={filteredPlaces}
           selectedPlaceId={selectedPlaceId}
           pinMode={pinMode}
