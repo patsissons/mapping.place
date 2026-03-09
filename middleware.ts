@@ -4,6 +4,16 @@ import { withAuth } from "next-auth/middleware";
 import { getAppAuthSecret } from "@/lib/app-auth";
 
 const MAP_STATE_PARAM = "m";
+const PUBLIC_METADATA_ROUTES = new Set([
+  "/opengraph-image",
+  "/twitter-image",
+  "/icon",
+  "/apple-icon",
+]);
+
+function isPublicMetadataRoute(pathname: string) {
+  return PUBLIC_METADATA_ROUTES.has(pathname);
+}
 
 function readCallbackUrl(value: string | null) {
   if (!value || !value.startsWith("/")) {
@@ -16,9 +26,11 @@ function readCallbackUrl(value: string | null) {
 export default withAuth(
   (request) => {
     const isAuthenticated = Boolean(request.nextauth.token);
-    const isLoginRoute = request.nextUrl.pathname === "/login";
+    const pathname = request.nextUrl.pathname;
+    const isLoginRoute = pathname === "/login";
+    const isPublicMetadataRequest = isPublicMetadataRoute(pathname);
     const isPublicHomeRoute =
-      request.nextUrl.pathname === "/" &&
+      pathname === "/" &&
       !request.nextUrl.searchParams.has(MAP_STATE_PARAM);
 
     if (isLoginRoute) {
@@ -31,6 +43,10 @@ export default withAuth(
         );
       }
 
+      return NextResponse.next();
+    }
+
+    if (isPublicMetadataRequest) {
       return NextResponse.next();
     }
 
@@ -54,12 +70,18 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ req, token }) => {
-        if (req.nextUrl.pathname === "/login") {
+        const pathname = req.nextUrl.pathname;
+
+        if (pathname === "/login") {
+          return true;
+        }
+
+        if (isPublicMetadataRoute(pathname)) {
           return true;
         }
 
         if (
-          req.nextUrl.pathname === "/" &&
+          pathname === "/" &&
           !req.nextUrl.searchParams.has(MAP_STATE_PARAM)
         ) {
           return true;
