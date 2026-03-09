@@ -39,6 +39,10 @@ export function PlaceList({
       return;
     }
 
+    if (window.matchMedia("(max-width: 1023px)").matches) {
+      return;
+    }
+
     itemRefs.current[selectedPlaceId]?.scrollIntoView({
       behavior: "smooth",
       block: "nearest",
