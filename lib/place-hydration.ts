@@ -26,6 +26,8 @@ const GOOGLE_PLACE_FIELD_MASK = [
   "displayName",
   "formattedAddress",
   "location",
+  "googleMapsUri",
+  "googleMapsLinks.placeUri",
   "rating",
   "userRatingCount",
   "regularOpeningHours.periods",
@@ -45,6 +47,10 @@ type GooglePlaceResponse = {
     text?: string;
   };
   formattedAddress?: string;
+  googleMapsUri?: string;
+  googleMapsLinks?: {
+    placeUri?: string;
+  };
   location?: {
     latitude?: number;
     longitude?: number;
@@ -193,11 +199,14 @@ function hasEnabledHours(hours: OpeningHours) {
 
 function getHydratedPlace(place: Place, data: GooglePlaceResponse): Place {
   const hours = buildOpeningHours(data.regularOpeningHours?.periods);
+  const googleMapsUrl =
+    data.googleMapsLinks?.placeUri?.trim() || data.googleMapsUri?.trim();
 
   return {
     ...place,
     name: data.displayName?.text?.trim() || place.name,
     address: data.formattedAddress ?? place.address,
+    sourceUrl: googleMapsUrl || place.sourceUrl,
     lat: isFiniteNumber(data.location?.latitude) ? data.location.latitude : place.lat,
     lng: isFiniteNumber(data.location?.longitude) ? data.location.longitude : place.lng,
     rating: isFiniteNumber(data.rating) ? data.rating : place.rating,

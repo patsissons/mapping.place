@@ -249,7 +249,7 @@ export function MapBuilderPage({
                   ...payload.place,
                   id: place.id,
                   notes: place.notes,
-                  sourceUrl: place.sourceUrl ?? payload.place.sourceUrl,
+                  sourceUrl: payload.place.sourceUrl ?? place.sourceUrl,
                 }
               : place,
           ),
