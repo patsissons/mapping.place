@@ -1,6 +1,72 @@
 import { clamp } from "@/lib/utils";
 import { DAY_KEYS, type PinMode, type Place } from "@/lib/types";
 
+function parseTimeToMinutes(value: string) {
+  const [hours, minutes] = value.split(":").map(Number);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function isOpenDuringHours(
+  openMinutes: number,
+  closeMinutes: number,
+  currentMinutes: number,
+) {
+  if (openMinutes === closeMinutes) {
+    return true;
+  }
+
+  if (openMinutes < closeMinutes) {
+    return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+  }
+
+  return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
+}
+
+export function isPlaceOpenAt(place: Place, date: Date) {
+  const currentMinutes = date.getHours() * 60 + date.getMinutes();
+  const dayKey = DAY_KEYS[date.getDay()];
+  const todayHours = place.hours[dayKey];
+
+  if (todayHours.enabled) {
+    const openMinutes = parseTimeToMinutes(todayHours.open);
+    const closeMinutes = parseTimeToMinutes(todayHours.close);
+
+    if (
+      openMinutes !== null &&
+      closeMinutes !== null &&
+      isOpenDuringHours(openMinutes, closeMinutes, currentMinutes)
+    ) {
+      return true;
+    }
+  }
+
+  const previousDay = new Date(date);
+  previousDay.setDate(date.getDate() - 1);
+  const previousDayKey = DAY_KEYS[previousDay.getDay()];
+  const previousDayHours = place.hours[previousDayKey];
+
+  if (!previousDayHours.enabled) {
+    return false;
+  }
+
+  const previousOpenMinutes = parseTimeToMinutes(previousDayHours.open);
+  const previousCloseMinutes = parseTimeToMinutes(previousDayHours.close);
+
+  if (previousOpenMinutes === null || previousCloseMinutes === null) {
+    return false;
+  }
+
+  return (
+    previousOpenMinutes > previousCloseMinutes &&
+    currentMinutes < previousCloseMinutes
+  );
+}
+
 export function getPlaceStatus(place: Place, selectedDate: string) {
   const date = new Date(`${selectedDate}T12:00:00`);
   const dayKey = DAY_KEYS[date.getDay()];

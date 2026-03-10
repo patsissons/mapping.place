@@ -53,8 +53,8 @@ export function PlaceFilters({
           Filters and pin styling
         </CardTitle>
         <CardDescription>
-          Search, filter by open status on {selectedDate}, and switch the marker
-          encoding mode.
+          Search places, filter to spots that are open right now, and switch
+          the marker encoding mode.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -71,7 +71,7 @@ export function PlaceFilters({
           <div className="flex min-h-6 items-center gap-2">
             <Label htmlFor="selected-date-filter">Status date</Label>
             <HoverPopover
-              content="This date controls the open or closed status shown for each place, the open-count stat, and the open-only filter."
+              content="This date controls the open or closed status shown for each place and the open-count stat. The Open only filter uses the current date and time instead."
               align="left"
             >
               <CircleHelp className="size-3.5" />
@@ -119,7 +119,7 @@ export function PlaceFilters({
           <div>
             <div className="font-medium text-foreground">Open only</div>
             <div className="text-xs">
-              Only show places that are open on the selected date.
+              Only show places that are open right now.
             </div>
           </div>
           <div

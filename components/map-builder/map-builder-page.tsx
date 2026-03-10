@@ -38,7 +38,7 @@ import {
   createBlankPlaceDraft,
   createStarterPlaces,
 } from "@/lib/place-data";
-import { getPlaceStatus } from "@/lib/place-status";
+import { getPlaceStatus, isPlaceOpenAt } from "@/lib/place-status";
 import {
   clearSavedMaps,
   loadSavedMaps,
@@ -719,7 +719,7 @@ export function MapBuilderPage({
         return true;
       }
 
-      return getPlaceStatus(place, selectedDate).isOpen;
+      return isPlaceOpenAt(place, new Date());
     })
     .sort((left, right) => {
       switch (sortOption) {
