@@ -80,6 +80,37 @@
   .field-grid {
     @apply grid gap-3 sm:grid-cols-2;
   }
+
+  .mapping-date-input {
+    appearance: none;
+    -webkit-appearance: none;
+    position: relative;
+    min-height: 2.75rem;
+    height: 2.75rem;
+    line-height: 1.25rem;
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
+  }
+
+  .mapping-date-input::-webkit-date-and-time-value {
+    text-align: left;
+  }
+
+  .mapping-date-input::-webkit-datetime-edit {
+    display: inline-flex;
+    align-items: center;
+    min-height: 1.25rem;
+    padding: 0;
+  }
+
+  .mapping-date-input::-webkit-datetime-edit-fields-wrapper {
+    padding: 0;
+  }
+
+  .mapping-date-input::-webkit-calendar-picker-indicator {
+    margin: 0;
+    opacity: 0.9;
+  }
 }
 
 .leaflet-container {

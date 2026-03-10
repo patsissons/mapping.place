@@ -82,7 +82,7 @@ export function PlaceFilters({
             type="date"
             value={selectedDate}
             onChange={(event) => onSelectedDateChange(event.target.value)}
-            className="pr-2 [&::-webkit-calendar-picker-indicator]:ml-auto [&::-webkit-calendar-picker-indicator]:cursor-pointer"
+            className="mapping-date-input pr-10 text-left [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:right-3 [&::-webkit-calendar-picker-indicator]:ml-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer"
           />
         </div>
         <div className="space-y-2">
