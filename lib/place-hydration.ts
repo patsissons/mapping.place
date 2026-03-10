@@ -512,6 +512,11 @@ export async function hydrateGooglePlaceReference(
           ? "Google Place ID was not found."
           : `Google Places lookup failed with status ${response.status}.`;
 
+      if (response.status !== 404) {
+        const body = await response.text();
+        console.error(error, body);
+      }
+
       return {
         ok: false,
         status: response.status,
